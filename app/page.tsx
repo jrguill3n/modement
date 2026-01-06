@@ -97,8 +97,12 @@ export default function Home() {
     }
 
     try {
+      console.log("[v0] Fetching artwork for:", trackUrl)
       const response = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(trackUrl)}`)
-      if (!response.ok) return null
+      if (!response.ok) {
+        console.error("[v0] Failed to fetch album artwork - Status:", response.status, "URL:", trackUrl)
+        return null
+      }
 
       const data = await response.json()
       const thumbnailUrl = data.thumbnail_url || null
@@ -110,7 +114,7 @@ export default function Home() {
 
       return thumbnailUrl
     } catch (error) {
-      console.error("[v0] Failed to fetch album artwork:", error)
+      console.error("[v0] Failed to fetch album artwork:", error, "URL:", trackUrl)
       return null
     }
   }
