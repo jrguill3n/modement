@@ -81,6 +81,7 @@ export default function Home() {
   const [loadedArtwork, setLoadedArtwork] = useState<Map<string, string>>(new Map())
   const [expandedReasons, setExpandedReasons] = useState<Set<string>>(new Set())
   const [accordionKey, setAccordionKey] = useState<number>(0)
+  const [expandedAccordions, setExpandedAccordions] = useState<Set<string>>(new Set())
 
   const fetchMix = async () => {
     setLoading(true)
@@ -138,6 +139,7 @@ export default function Home() {
     setSituation(sit)
     setExpandedReasons(new Set())
     setAccordionKey((prev) => prev + 1) // Force accordion reset
+    setExpandedAccordions(new Set())
   }
 
   const handleTweakChange = (newTweak: string) => {
@@ -165,6 +167,26 @@ export default function Home() {
       }
       return next
     })
+  }
+
+  const handleAccordionChange = async (value: string) => {
+    if (value && !expandedAccordions.has(value)) {
+      setExpandedAccordions((prev) => new Set(prev).add(value))
+
+      const blockIndex = Number.parseInt(value.split("-")[1])
+      const block = mix?.blocks[blockIndex]
+
+      if (block) {
+        for (const track of block.tracks) {
+          if (!loadedArtwork.has(track.id)) {
+            const artwork = await fetchAlbumArtwork(track.track_url)
+            if (artwork) {
+              setLoadedArtwork((prev) => new Map(prev).set(track.id, artwork))
+            }
+          }
+        }
+      }
+    }
   }
 
   useEffect(() => {
@@ -228,6 +250,19 @@ export default function Home() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="flex justify-center pt-4">
+            <Button
+              onClick={() => {
+                setView("recommendations")
+                fetchMix()
+              }}
+              size="lg"
+              className="min-h-[56px] px-12 text-lg bg-[#1DB954] text-black hover:bg-[#1ed760] font-semibold rounded-full transition-all duration-200 shadow-lg touch-manipulation"
+            >
+              Continue
+            </Button>
           </div>
         </div>
       </div>
@@ -497,7 +532,13 @@ export default function Home() {
           paddingBottom: "max(2rem, env(safe-area-inset-bottom))",
         }}
       >
-        <Accordion key={accordionKey} type="single" collapsible className="space-y-4">
+        <Accordion
+          key={accordionKey}
+          type="single"
+          collapsible
+          className="space-y-4"
+          onValueChange={handleAccordionChange}
+        >
           {mix.blocks.map((block, index) => (
             <AccordionItem
               key={index}
