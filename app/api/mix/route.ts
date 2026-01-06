@@ -4,6 +4,17 @@ import { type NextRequest, NextResponse } from "next/server"
 type TimeBucket = "morning" | "midday" | "evening" | "late_night"
 type Tweak = "more_new" | "more_familiar" | "no_repeats" | "none"
 type EngineMode = "my_engine" | "spotify_ai"
+type Situation =
+  | "working"
+  | "studying"
+  | "working_out"
+  | "walking"
+  | "dinner"
+  | "hanging_out"
+  | "party"
+  | "late_night"
+  | "chill"
+  | "auto"
 
 type Track = {
   id: string
@@ -41,6 +52,23 @@ function getTweak(req: NextRequest): Tweak {
   const raw = (req.nextUrl.searchParams.get("tweak") || "").trim()
   if (raw === "more_new" || raw === "more_familiar" || raw === "no_repeats") return raw
   return "none"
+}
+
+function getSituation(req: NextRequest): Situation {
+  const raw = (req.nextUrl.searchParams.get("situation") || "").trim()
+  const valid: Situation[] = [
+    "working",
+    "studying",
+    "working_out",
+    "walking",
+    "dinner",
+    "hanging_out",
+    "party",
+    "late_night",
+    "chill",
+  ]
+  if (valid.includes(raw as Situation)) return raw as Situation
+  return "auto"
 }
 
 function getEngine(req: NextRequest): EngineMode {
@@ -123,41 +151,73 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
 function blockPlan(bucket: TimeBucket): Array<{ title: string; subtitle: string; intent: string }> {
   if (bucket === "morning") {
     return [
-      { title: "Morning Momentum", subtitle: "Wake up, move, win", intent: "energy" },
-      { title: "Warm Up and Go", subtitle: "Upbeat without chaos", intent: "ramp" },
-      { title: "Deep Focus", subtitle: "Steady tempo, low distraction", intent: "focus" },
-      { title: "New to the Rotation", subtitle: "Fresh picks that still fit", intent: "discovery" },
-      { title: "Flashback Fuel", subtitle: "Old favorites, new morning", intent: "throwback" },
+      {
+        title: "If you want momentum",
+        subtitle: "Upbeat tracks to get you moving and thinking clearly",
+        intent: "energy",
+      },
+      { title: "If you need a smooth start", subtitle: "Lighter energy without rushing into anything", intent: "ramp" },
+      {
+        title: "If you want deep focus",
+        subtitle: "Steady, low-distraction tracks that help you stay locked in",
+        intent: "focus",
+      },
+      {
+        title: "If you want something new",
+        subtitle: "Fresh picks that still fit your current MODEMENT",
+        intent: "discovery",
+      },
+      {
+        title: "If you want something familiar",
+        subtitle: "Reliable favorites that usually work right now",
+        intent: "throwback",
+      },
     ]
   }
 
   if (bucket === "midday") {
     return [
-      { title: "Deep Focus", subtitle: "Steady tempo, low distraction", intent: "focus" },
-      { title: "Lunch Reset", subtitle: "Mental break, good mood", intent: "reset" },
-      { title: "Afternoon Push", subtitle: "Bring the energy back", intent: "energy" },
-      { title: "New to the Rotation", subtitle: "Discovery, not randomness", intent: "discovery" },
-      { title: "Feel Good Throwback", subtitle: "Reliable favorites at this hour", intent: "throwback" },
+      {
+        title: "If you want deep focus",
+        subtitle: "Steady tempo and minimal distraction for sustained work",
+        intent: "focus",
+      },
+      { title: "If you need a mental reset", subtitle: "Light, familiar energy to clear your head", intent: "reset" },
+      { title: "If you need a push", subtitle: "More energy without going full chaos", intent: "energy" },
+      { title: "If you want something new", subtitle: "Fresh tracks that match this time of day", intent: "discovery" },
+      { title: "If you want something familiar", subtitle: "Songs that feel right at this hour", intent: "throwback" },
     ]
   }
 
   if (bucket === "evening") {
     return [
-      { title: "Evening Unwind", subtitle: "Lower pressure, warm vibe", intent: "reset" },
-      { title: "Golden Hour Focus", subtitle: "Light energy, smooth groove", intent: "focus" },
-      { title: "Kitchen Playlist", subtitle: "Cook, talk, move around", intent: "ramp" },
-      { title: "New Tonight", subtitle: "Fresh picks for the evening", intent: "discovery" },
-      { title: "Back Pocket Classics", subtitle: "Familiar, no surprises", intent: "throwback" },
+      {
+        title: "If you want to unwind",
+        subtitle: "Lower pressure, warmer vibe to transition out of the day",
+        intent: "reset",
+      },
+      {
+        title: "If you want light focus",
+        subtitle: "Smooth groove with enough energy to stay present",
+        intent: "focus",
+      },
+      { title: "If you want to move", subtitle: "Upbeat tracks for cooking, cleaning, or hanging out", intent: "ramp" },
+      { title: "If you want something new", subtitle: "Fresh picks for the evening mood", intent: "discovery" },
+      {
+        title: "If you want something familiar",
+        subtitle: "Classics you can count on, no surprises",
+        intent: "throwback",
+      },
     ]
   }
 
   // late night
   return [
-    { title: "Late Night Energy", subtitle: "More pulse, less chatter", intent: "energy" },
-    { title: "After Hours", subtitle: "Smooth and confident", intent: "focus" },
-    { title: "Dance Corner", subtitle: "Housey, bright, fun", intent: "ramp" },
-    { title: "New in the Dark", subtitle: "Discovery for night mode", intent: "discovery" },
-    { title: "Throwback Bangers", subtitle: "Songs that never miss", intent: "throwback" },
+    { title: "If you want energy", subtitle: "More pulse, less chatter for late-night momentum", intent: "energy" },
+    { title: "If you want to stay sharp", subtitle: "Smooth and confident for focused late hours", intent: "focus" },
+    { title: "If you want to move", subtitle: "Bright, housey energy for dancing or staying up", intent: "ramp" },
+    { title: "If you want something new", subtitle: "Discovery mode for the night shift", intent: "discovery" },
+    { title: "If you want something familiar", subtitle: "Throwback bangers that never miss", intent: "throwback" },
   ]
 }
 
@@ -633,17 +693,65 @@ function scoreTrack(t: MockTrack, intent: string, tweak: Tweak): number {
   return score
 }
 
+const SITUATION_BIAS: Record<Situation, Partial<Record<string, number>>> = {
+  auto: {},
+  working: { focus: 3, familiar: 1, energy: -1 },
+  studying: { focus: 3, familiar: 1, reset: -2 },
+  working_out: { energy: 3, ramp: 2, focus: -3 },
+  walking: { reset: 2, ramp: 1, focus: -1 },
+  dinner: { reset: 2, familiar: 1, energy: -1 },
+  hanging_out: { reset: 2, energy: 1, focus: -2 },
+  party: { energy: 3, ramp: 2, focus: -3 },
+  late_night: { energy: 2, ramp: 1, throwback: 1 },
+  chill: { reset: 3, focus: 1, energy: -2 },
+}
+
+function scoreIntent(intent: string, situation: Situation): number {
+  if (situation === "auto") return 0
+  const bias = SITUATION_BIAS[situation]
+  return bias[intent] || 0
+}
+
 function pickTracksForIntent(params: {
   intent: string
   tweak: Tweak
   engine: EngineMode
   seed: number
   seen: Set<string>
+  situation: Situation
 }): MockTrack[] {
-  const { intent, tweak, seed, seen } = params
+  const { intent, tweak, seed, seen, situation } = params
 
   const ordered = seededShuffle(MOCK_TRACKS, seed)
-    .map((t) => ({ t, score: scoreTrack(t, intent, tweak) }))
+    .map((t) => {
+      let score = scoreTrack(t, intent, tweak)
+
+      if (situation !== "auto") {
+        // Boost tracks that match situation-preferred intents
+        const situationBias = SITUATION_BIAS[situation]
+        for (const tag of t.tags) {
+          const intentBoost = situationBias[tag] || 0
+          if (intentBoost > 0) {
+            score += intentBoost * 0.5 // Softer boost at track level
+          }
+        }
+
+        // Adjust based on focus noise for focus-heavy situations
+        if ((situation === "working" || situation === "studying") && t.profile.focus_noise === "low") {
+          score += 2
+        }
+        if ((situation === "working" || situation === "studying") && t.profile.focus_noise === "high") {
+          score -= 2
+        }
+
+        // Boost energy for active situations
+        if ((situation === "working_out" || situation === "party") && t.profile.focus_noise === "high") {
+          score += 1
+        }
+      }
+
+      return { t, score }
+    })
     .sort((a, b) => b.score - a.score)
 
   const picked: MockTrack[] = []
@@ -672,10 +780,17 @@ function buildBlocks(params: {
   engine: EngineMode
   localTime: string
   seed: number
+  situation: Situation
 }): Block[] {
-  const { bucket, tweak, engine, localTime, seed } = params
+  const { bucket, tweak, engine, localTime, seed, situation } = params
 
-  const plan = blockPlan(bucket)
+  let plan = blockPlan(bucket)
+
+  if (situation !== "auto") {
+    const bias = SITUATION_BIAS[situation]
+    plan = plan.map((p) => ({ ...p, biasScore: bias[p.intent] || 0 })).sort((a, b) => b.biasScore - a.biasScore)
+  }
+
   const seen = new Set<string>()
 
   return plan.map((p, idx) => {
@@ -688,6 +803,7 @@ function buildBlocks(params: {
       engine,
       seed: blockSeed,
       seen,
+      situation, // Pass situation to track picker
     })
 
     const usedHooks = new Set<string>()
@@ -748,6 +864,7 @@ export async function GET(req: NextRequest) {
 
   const tweak = getTweak(req)
   const engine = getEngine(req)
+  const situation = getSituation(req) // Parse situation parameter
 
   const override = parseTimeOverride(req.nextUrl.searchParams.get("time"))
 
@@ -762,7 +879,7 @@ export async function GET(req: NextRequest) {
       }).format(new Date(2000, 0, 1, override.hours, override.minutes))
     : formatLocalTimeChicago(now)
 
-  const seedKey = `${timeBucket}|${tweak}|${engine}|${override ? `${override.hours}:${override.minutes}` : "now"}`
+  const seedKey = `${timeBucket}|${tweak}|${engine}|${situation}|${override ? `${override.hours}:${override.minutes}` : "now"}`
   const seed = stableHash(seedKey)
 
   const blocks = buildBlocks({
@@ -771,6 +888,7 @@ export async function GET(req: NextRequest) {
     engine,
     localTime: localTimeDisplay,
     seed,
+    situation, // Pass situation to block builder
   })
 
   const body: MixResponse = {

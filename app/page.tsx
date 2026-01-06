@@ -61,8 +61,9 @@ export default function TimeMixPage() {
   const [activeTweak, setActiveTweak] = useState<string>("")
   const [simulatedTime, setSimulatedTime] = useState<string>("")
   const [comparisonMode, setComparisonMode] = useState<"my_engine" | "spotify_ai">("my_engine")
+  const [situation, setSituation] = useState<string>("auto")
 
-  const fetchMix = async (tweak?: string, time?: string, engine?: string) => {
+  const fetchMix = async (tweak?: string, time?: string, engine?: string, situationParam?: string) => {
     setLoading(true)
     setError(null)
     setActiveTweak(tweak || "")
@@ -72,6 +73,7 @@ export default function TimeMixPage() {
       if (tweak) params.set("tweak", tweak)
       if (time) params.set("time", time)
       if (engine) params.set("engine", engine)
+      if (situationParam && situationParam !== "auto") params.set("situation", situationParam)
 
       const url = params.toString() ? `/api/mix?${params.toString()}` : "/api/mix"
       const response = await fetch(url)
@@ -89,6 +91,11 @@ export default function TimeMixPage() {
     }
   }
 
+  const handleTweakChange = (tweak: string) => {
+    setActiveTweak(tweak)
+    fetchMix(tweak, simulatedTime, comparisonMode, situation)
+  }
+
   useEffect(() => {
     const now = new Date()
     const hours = String(now.getHours()).padStart(2, "0")
@@ -102,22 +109,38 @@ export default function TimeMixPage() {
 
   const handleTimeChange = (time: string) => {
     setSimulatedTime(time)
-    fetchMix(activeTweak || undefined, time, comparisonMode)
+    fetchMix(activeTweak || undefined, time, comparisonMode, situation)
   }
 
   const handleQuickTime = (time: string) => {
     setSimulatedTime(time)
-    fetchMix(activeTweak || undefined, time, comparisonMode)
+    const timeInput = document.querySelector('input[type="time"]') as HTMLInputElement
+    if (timeInput) timeInput.value = time
+    fetchMix(activeTweak, simulatedTime, comparisonMode, situation)
   }
 
-  const handleTweakChange = (tweak: string) => {
-    fetchMix(tweak || undefined, simulatedTime || undefined, comparisonMode)
-  }
-
-  const handleEngineChange = (engine: "my_engine" | "spotify_ai") => {
+  const handleEngineToggle = (engine: "my_engine" | "spotify_ai") => {
     setComparisonMode(engine)
-    fetchMix(activeTweak || undefined, simulatedTime || undefined, engine)
+    fetchMix(activeTweak, simulatedTime, engine, situation)
   }
+
+  const handleSituationChange = (newSituation: string) => {
+    setSituation(newSituation)
+    fetchMix(activeTweak, simulatedTime, comparisonMode, newSituation)
+  }
+
+  const situations = [
+    "auto",
+    "working",
+    "studying",
+    "working out",
+    "dinner",
+    "hanging out",
+    "party",
+    "walking",
+    "late night",
+    "chill",
+  ]
 
   if (loading) {
     return (
@@ -177,7 +200,9 @@ export default function TimeMixPage() {
                 <p className="text-sm text-[#B3B3B3] mt-1">{error}</p>
               </div>
               <Button
-                onClick={() => fetchMix(activeTweak || undefined, simulatedTime || undefined, comparisonMode)}
+                onClick={() =>
+                  fetchMix(activeTweak || undefined, simulatedTime || undefined, comparisonMode, situation)
+                }
                 variant="outline"
                 size="sm"
                 className="transition-all duration-150"
@@ -224,7 +249,7 @@ export default function TimeMixPage() {
                 <Button
                   variant={comparisonMode === "my_engine" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => handleEngineChange("my_engine")}
+                  onClick={() => handleEngineToggle("my_engine")}
                   className="h-7 text-xs px-2 md:px-3 transition-all duration-150 hover:bg-[#1F1F1F]"
                 >
                   My Engine
@@ -232,7 +257,7 @@ export default function TimeMixPage() {
                 <Button
                   variant={comparisonMode === "spotify_ai" ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => handleEngineChange("spotify_ai")}
+                  onClick={() => handleEngineToggle("spotify_ai")}
                   className="h-7 text-xs px-2 md:px-3 transition-all duration-150 hover:bg-[#1F1F1F]"
                 >
                   Spotify AI
@@ -256,7 +281,7 @@ export default function TimeMixPage() {
           </span>
         </div>
       </div>
-      <div className="border-b border-[rgba(255,255,255,0.08)]">
+      <div className="border-b border-[rgba(255,255,255,0.08)] bg-[#0E0E10]">
         <div className="container mx-auto px-4 py-2.5 max-w-7xl">
           <div className="flex items-start gap-3 bg-[#181818] rounded-lg p-3">
             <Info className="h-4 w-4 text-[#7A7A7A] shrink-0 mt-0.5" />
@@ -267,13 +292,43 @@ export default function TimeMixPage() {
           </div>
         </div>
       </div>
+      {/* Hero copy */}
+      <div className="text-center space-y-3 mb-6">
+        <h1 className="text-3xl md:text-4xl font-semibold text-white">Decide what to listen to right now.</h1>
+        <p className="text-base md:text-lg text-[#B3B3B3] max-w-2xl mx-auto">
+          MODEMENT helps you choose music based on your current mode and moment — not just your history.
+        </p>
+        <p className="text-xs text-[#7A7A7A]">Clear options. Visible reasoning. You stay in control.</p>
+      </div>
+
+      <div className="mb-6 space-y-2">
+        <p className="text-sm text-[#A0A0A0] text-center">What are you doing right now?</p>
+        <div className="flex flex-wrap justify-center gap-2">
+          {situations.map((sit) => (
+            <button
+              key={sit}
+              onClick={() => handleSituationChange(sit)}
+              className={`px-4 py-2 rounded-full text-sm capitalize transition-all duration-200 ${
+                situation === sit
+                  ? "bg-[#1DB954] text-white shadow-md"
+                  : "bg-[#282828] text-[#B3B3B3] hover:bg-[#3E3E3E] hover:text-white"
+              }`}
+            >
+              {sit === "auto" ? "Auto" : sit}
+            </button>
+          ))}
+        </div>
+        {situation !== "auto" && (
+          <p className="text-xs text-[#7A7A7A] text-center">Refining your MODEMENT for this activity</p>
+        )}
+      </div>
+
       {comparisonMode === "my_engine" && (
-        <div className="border-b border-[rgba(255,255,255,0.08)] bg-[#0E0E10]">
-          <div className="container mx-auto px-4 py-1.5 max-w-7xl">
-            <p className="text-xs text-[#7A7A7A]">Designed for how you listen in this MODEMENT.</p>
-          </div>
+        <div className="text-center mb-6">
+          <p className="text-sm text-[#7A7A7A]">Designed for how you listen in this MODEMENT.</p>
         </div>
       )}
+
       <div className="border-b border-[rgba(255,255,255,0.08)] bg-[#0E0E10]">
         <div className="container mx-auto px-4 py-3 max-w-7xl">
           <div className="flex flex-col gap-3">
