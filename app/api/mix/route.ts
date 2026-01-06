@@ -162,32 +162,115 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
   return a
 }
 
-function blockPlan(bucket: TimeBucket): Array<{ title: string; subtitle: string; intent: string }> {
+type BlockIntent = {
+  title: string
+  subtitle: string
+  intent: string
+}
+
+const SITUATION_BLOCKS: Record<Situation, BlockIntent[]> = {
+  auto: [], // Will use time-based blocks
+  working: [
+    { title: "If you want deep focus", subtitle: "Predictable energy that stays out of the way", intent: "focus" },
+    { title: "If you need a mental reset", subtitle: "Shift your state without losing momentum", intent: "reset" },
+    { title: "If you want something familiar", subtitle: "Tracks you know that won't distract", intent: "throwback" },
+    { title: "If you need a light push", subtitle: "Subtle lift without breaking concentration", intent: "ramp" },
+  ],
+  studying: [
+    { title: "If you want deep focus", subtitle: "Steady tracks that keep you locked in", intent: "focus" },
+    { title: "If you need a mental break", subtitle: "Clear your head without losing the groove", intent: "reset" },
+    {
+      title: "If you want something familiar",
+      subtitle: "Known tracks that feel like background",
+      intent: "throwback",
+    },
+    { title: "If you need gentle energy", subtitle: "Lift your attention without overloading", intent: "ramp" },
+  ],
+  working_out: [
+    { title: "If you want high energy", subtitle: "Drive and intensity to push harder", intent: "energy" },
+    { title: "If you want steady momentum", subtitle: "Consistent rhythm to keep you moving", intent: "ramp" },
+    { title: "If you want familiar fuel", subtitle: "Songs you know that keep you going", intent: "throwback" },
+    { title: "If you want to switch it up", subtitle: "New angles that still match your pace", intent: "discovery" },
+  ],
+  walking: [
+    { title: "If you want easy flow", subtitle: "Relaxed pace that matches your steps", intent: "reset" },
+    { title: "If you want gentle momentum", subtitle: "Light push without rushing you", intent: "ramp" },
+    { title: "If you want something familiar", subtitle: "Comfort tracks for the background", intent: "throwback" },
+    { title: "If you want something different", subtitle: "Fresh sounds that fit your walk", intent: "discovery" },
+  ],
+  dinner: [
+    { title: "If you want easy vibes", subtitle: "Background energy that doesn't demand attention", intent: "reset" },
+    { title: "If you want something familiar", subtitle: "Known favorites that set the mood", intent: "throwback" },
+    { title: "If you want warm energy", subtitle: "Inviting sounds without being loud", intent: "ramp" },
+    { title: "If you want subtle variety", subtitle: "New picks that still feel right", intent: "discovery" },
+  ],
+  hanging_out: [
+    {
+      title: "If you want relaxed energy",
+      subtitle: "Loose vibes that don't compete with conversation",
+      intent: "reset",
+    },
+    { title: "If you want something familiar", subtitle: "Shared favorites everyone knows", intent: "throwback" },
+    {
+      title: "If you want to lift the mood",
+      subtitle: "Easy upbeat tracks without being aggressive",
+      intent: "energy",
+    },
+    { title: "If you want something fresh", subtitle: "New sounds that fit the vibe", intent: "discovery" },
+  ],
+  party: [
+    { title: "If you want to start strong", subtitle: "Immediate energy to set the tone", intent: "energy" },
+    { title: "If you want peak moments", subtitle: "High-impact tracks that move the room", intent: "ramp" },
+    { title: "If you want crowd-pleasers", subtitle: "Songs people recognize and respond to", intent: "throwback" },
+    { title: "If you want to keep it going", subtitle: "Fresh energy that holds attention", intent: "discovery" },
+  ],
+  late_night: [
+    { title: "If you want sustained energy", subtitle: "Drive without burning out", intent: "energy" },
+    { title: "If you want to stay sharp", subtitle: "Focus energy for late hours", intent: "focus" },
+    { title: "If you want familiar comfort", subtitle: "Known tracks for tired moments", intent: "throwback" },
+    { title: "If you want to wind down", subtitle: "Ease into calmer energy", intent: "reset" },
+  ],
+  chill: [
+    { title: "If you want to slow down", subtitle: "Low-key tracks that help you settle", intent: "reset" },
+    { title: "If you want something familiar", subtitle: "Comfort picks you already love", intent: "throwback" },
+    { title: "If you want gentle focus", subtitle: "Calm attention without pressure", intent: "focus" },
+    { title: "If you want something different", subtitle: "New calm sounds to explore", intent: "discovery" },
+  ],
+}
+
+function blockPlan(
+  bucket: TimeBucket,
+  situation: Situation,
+): Array<{ title: string; subtitle: string; intent: string }> {
+  if (situation !== "auto" && SITUATION_BLOCKS[situation]) {
+    return SITUATION_BLOCKS[situation]
+  }
+
   if (bucket === "morning") {
     return [
       {
         title: "If you want momentum",
-        subtitle: "Upbeat tracks to get you moving and thinking clearly",
+        subtitle: "", // Will be populated dynamically
         intent: "energy",
       },
       {
         title: "If you need a smooth start",
-        subtitle: "Lighter energy that builds without rushing",
+        subtitle: "",
         intent: "ramp",
       },
       {
         title: "If you want deep focus",
-        subtitle: "Steady, low-distraction tracks that help you stay locked in",
+        subtitle: "",
         intent: "focus",
       },
       {
         title: "If you want something different",
-        subtitle: "A change in texture and mood that still fits right now",
+        subtitle: "",
         intent: "discovery",
       },
       {
         title: "If you want something familiar",
-        subtitle: "Comfort picks that usually work",
+        subtitle: "",
         intent: "throwback",
       },
     ]
@@ -197,27 +280,27 @@ function blockPlan(bucket: TimeBucket): Array<{ title: string; subtitle: string;
     return [
       {
         title: "If you want deep focus",
-        subtitle: "Predictable energy that stays out of the way",
+        subtitle: "",
         intent: "focus",
       },
       {
         title: "If you need a mental reset",
-        subtitle: "Light, familiar sounds to clear your head",
+        subtitle: "",
         intent: "reset",
       },
       {
         title: "If you need a push",
-        subtitle: "Upbeat tracks that lift momentum without chaos",
+        subtitle: "",
         intent: "energy",
       },
       {
         title: "If you want something different",
-        subtitle: "Something fresh without feeling random",
+        subtitle: "",
         intent: "discovery",
       },
       {
         title: "If you want something familiar",
-        subtitle: "Reliable songs that feel right without thinking",
+        subtitle: "",
         intent: "throwback",
       },
     ]
@@ -227,27 +310,27 @@ function blockPlan(bucket: TimeBucket): Array<{ title: string; subtitle: string;
     return [
       {
         title: "If you want to unwind",
-        subtitle: "Lower pressure, warmer vibe to transition out of the day",
+        subtitle: "",
         intent: "reset",
       },
       {
         title: "If you want light focus",
-        subtitle: "Smooth groove with enough energy to stay present",
+        subtitle: "",
         intent: "focus",
       },
       {
         title: "If you want to move",
-        subtitle: "More movement, still controlled",
+        subtitle: "",
         intent: "ramp",
       },
       {
         title: "If you want something different",
-        subtitle: "A fresh angle that still fits your current MODEMENT",
+        subtitle: "",
         intent: "discovery",
       },
       {
         title: "If you want something familiar",
-        subtitle: "Classics you can count on, no surprises",
+        subtitle: "",
         intent: "throwback",
       },
     ]
@@ -257,27 +340,27 @@ function blockPlan(bucket: TimeBucket): Array<{ title: string; subtitle: string;
   return [
     {
       title: "If you want energy",
-      subtitle: "More pulse, less chatter for late-night momentum",
+      subtitle: "",
       intent: "energy",
     },
     {
       title: "If you want to stay sharp",
-      subtitle: "Steady tracks that keep you locked in without forcing it",
+      subtitle: "",
       intent: "focus",
     },
     {
       title: "If you want to move",
-      subtitle: "Bright energy for dancing or staying up",
+      subtitle: "",
       intent: "ramp",
     },
     {
       title: "If you want something different",
-      subtitle: "A change in texture and mood that still fits right now",
+      subtitle: "",
       intent: "discovery",
     },
     {
       title: "If you want something familiar",
-      subtitle: "Throwback bangers that never miss",
+      subtitle: "",
       intent: "throwback",
     },
   ]
@@ -986,6 +1069,75 @@ function getReasonSignal(intent: string): string {
   return signalMap[intent] || "Fresh angle"
 }
 
+const SUBTITLE_VARIANTS: Record<string, string[]> = {
+  focus: [
+    "Steady, low-distraction tracks to help you stay locked in",
+    "Predictable energy that stays out of the way",
+    "Smooth groove with enough energy to stay present",
+    "Steady tracks that keep you locked in without forcing it",
+  ],
+  reset: [
+    "Light energy to clear your head without slowing down",
+    "Light, familiar sounds to clear your head",
+    "Lower pressure, warmer vibe to transition out of the day",
+    "Shift your headspace without losing momentum",
+  ],
+  energy: [
+    "More movement that lifts momentum without chaos",
+    "Upbeat tracks to get you moving and thinking clearly",
+    "Upbeat tracks that lift momentum without chaos",
+    "More pulse, less chatter for late-night momentum",
+  ],
+  ramp: [
+    "Lighter energy that builds without rushing",
+    "More movement, still controlled",
+    "Bright energy for dancing or staying up",
+    "Building energy that doesn't rush you",
+  ],
+  discovery: [
+    "A fresh angle that still fits your current MODEMENT",
+    "Something fresh without feeling random",
+    "A change in texture and mood that still fits right now",
+    "Different mood, same wavelength",
+  ],
+  throwback: [
+    "Comfort picks that feel right without thinking",
+    "Reliable songs that feel right without thinking",
+    "Classics you can count on, no surprises",
+    "Throwback bangers that never miss",
+  ],
+}
+
+const SUBTITLE_FALLBACK: Record<string, string> = {
+  focus: "Steady, low-distraction tracks to help you stay locked in.",
+  reset: "Light energy to clear your head without slowing down.",
+  energy: "More movement that lifts momentum without chaos.",
+  ramp: "Building energy that doesn't rush you.",
+  discovery: "A fresh angle that still fits your current MODEMENT.",
+  throwback: "Comfort picks that feel right without thinking.",
+}
+
+function pickSubtitleVariant(intent: string, usedSubtitles: Set<string>, seed: number): string {
+  const variants = SUBTITLE_VARIANTS[intent] || [SUBTITLE_FALLBACK[intent] || "A MODEMENT option tuned for right now."]
+
+  // Find unused variants
+  const unused = variants.filter((v) => !usedSubtitles.has(v))
+
+  if (unused.length > 0) {
+    // Pick from unused variants using seed
+    const seededRandom = (seed * 9301 + 49297) % 233280
+    const idx = Math.floor((seededRandom / 233280) * unused.length)
+    const chosen = unused[idx]
+    usedSubtitles.add(chosen)
+    return chosen
+  }
+
+  // All variants used, allow reuse as last resort
+  const seededRandom = (seed * 9301 + 49297) % 233280
+  const idx = Math.floor((seededRandom / 233280) * variants.length)
+  return variants[idx]
+}
+
 function buildBlocks(params: {
   bucket: TimeBucket
   tweak: Tweak
@@ -996,15 +1148,11 @@ function buildBlocks(params: {
 }): Block[] {
   const { bucket, tweak, engine, localTime, seed, situation } = params
 
-  let plan = blockPlan(bucket)
-
-  if (situation !== "auto") {
-    const bias = SITUATION_BIAS[situation]
-    plan = plan.map((p) => ({ ...p, biasScore: bias[p.intent] || 0 })).sort((a, b) => b.biasScore - a.biasScore)
-  }
+  const plan = blockPlan(bucket, situation)
 
   const seen = new Set<string>()
   const globalSeen = new Set<string>()
+  const usedSubtitles = new Set<string>()
 
   return plan.map((p, idx) => {
     const intent = p.intent
@@ -1050,6 +1198,8 @@ function buildBlocks(params: {
       }
     })
 
+    const subtitle = pickSubtitleVariant(intent, usedSubtitles, blockSeed)
+
     if (engine === "spotify_ai") {
       return {
         id: `block-${idx}`,
@@ -1063,7 +1213,7 @@ function buildBlocks(params: {
                 : idx === 3
                   ? "Recommended"
                   : "More Like This",
-        subtitle: spotifyAiSubtitle(bucket),
+        subtitle: subtitle || spotifyAiSubtitle(bucket),
         why_now: spotifyAiWhyNow(bucket),
         tracks,
       }
@@ -1072,7 +1222,7 @@ function buildBlocks(params: {
     return {
       id: `block-${idx}`,
       title: p.title,
-      subtitle: p.subtitle,
+      subtitle: subtitle || SUBTITLE_FALLBACK[intent] || "A MODEMENT option tuned for right now.",
       why_now: blockWhyNow({ bucket, tweak, localTime, intent, situation }),
       tracks,
     }

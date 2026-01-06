@@ -521,7 +521,9 @@ export default function Home() {
               >
                 <div className="flex flex-col items-start gap-3 text-left w-full pr-4">
                   <h2 className="text-xl md:text-2xl font-medium text-white leading-tight">{block.title}</h2>
-                  <p className="text-base md:text-lg text-white/60 leading-relaxed">{block.why_now}</p>
+                  <p className="text-base md:text-lg text-white/60 leading-relaxed">
+                    {block.subtitle || "A MODEMENT option tuned for right now."}
+                  </p>
                 </div>
               </AccordionTrigger>
               <AccordionContent className="px-0 py-0">

@@ -1,6 +1,6 @@
 # MODEMENT
 
-**MODE**MENT — music that adapts to your current mode and moment.
+**MODE**MENT — decide what to listen to right now.
 
 👉 Live demo:  
 https://v0-modement.vercel.app/
@@ -9,77 +9,74 @@ https://v0-modement.vercel.app/
 
 ## What is MODEMENT?
 
-MODEMENT is a small experiment around a simple idea:
+MODEMENT is a small product experiment built around a simple idea:
 
 > Music taste isn't static. It changes with your state of mind and the moment you're in.
 
-Instead of one endless recommendation feed, MODEMENT adapts music based on:
-- your current listening mode (focus, reset, energy, discovery)
+Instead of an endless recommendation feed, MODEMENT helps you **decide what fits right now** by combining:
 - time of day as context
-- familiarity vs novelty
-- repeat avoidance
-
-Every song comes with a short explanation so the logic is visible, not hidden.
+- optional situational intent (working out, studying, dinner, chill)
+- clear, intent-based choices
+- visible explanations for every song
 
 ---
 
 ## Why build this?
 
-Most music recommendation systems are great at finding "more of the same," but they tend to:
-- ignore context (morning vs late night feels very different)
-- hide their reasoning
-- give users very little control
+Modern music recommendation systems are very good at predicting taste.
 
-MODEMENT explores what happens when you design for context, explainability, and intent first.
+They're much worse at helping users decide:
+- what fits a workout
+- what works during focus
+- what feels right for a reset
+- when repetition becomes stale
+
+MODEMENT explores what happens when recommendations act as **decision support**, not a black box.
 
 ---
 
 ## How it works (high level)
 
-MODEMENT keeps things intentionally simple:
+MODEMENT is intentionally simple and explainable:
 
-1. Identify the current moment (morning, midday, evening, late night)
-2. Pick intent-based blocks that fit that moment
-3. Rank tracks using energy, familiarity, novelty, and repeat logic
-4. Group them into clear blocks instead of an infinite list
-5. Generate a short, human-readable reason for each song
+1. Time of day sets a reasonable default
+2. Situation (optional) refines intent
+3. Music is grouped into clear choices, not an infinite feed
+4. Tracks are selected with:
+   - energy
+   - familiarity
+   - novelty
+   - repetition avoidance
+5. Every song includes a short explanation of why it fits
 
-No black boxes. No mystery.
+No hidden magic. No mystery.
 
 ---
 
 ## What makes it different
 
-- **Mode-aware**: music adapts to how you're likely listening right now
-- **Explainable**: every pick tells you why it's there
-- **Controllable**: one tap to bias toward new, familiar, or no repeats
-- **Comparable**: includes a toggle to contrast MODEMENT with a typical "Spotify AI" style feed
+- **Decision-first UX** instead of passive scrolling
+- **Context awareness** that's visible to the user
+- **Explainable picks**, not "because you listened to…"
+- **Control without complexity**
 
-Same music. Different logic.
-
----
-
-## Data and limitations
-
-- The live demo uses simulated listening history and mock track profiles
-- Spotify deep links work
-- Live Spotify OAuth is not enabled yet due to current platform limitations
-
-These constraints are intentional for the demo, not conceptual.
+Same music. Different contract with the user.
 
 ---
 
-## What could be possible with deeper Spotify access
+## About the data
 
-If MODEMENT had access to Spotify's public APIs — and especially some of the deeper signals that were available in the past — the possibilities are wide open:
+MODEMENT currently uses **simulated listening history and mock signals**.
 
-- Real listening behavior by time of day and day of week
-- True skip, replay, and session-length signals per mode
-- Smarter novelty and overexposure detection
-- Explanations grounded in actual behavior
-- Blocks that adapt based on what actually works over time
+This is intentional.
 
-MODEMENT is designed so these signals could be layered in without changing the core experience.
+Access to Spotify's public APIs — and especially deeper listening signals — is now limited for general developers. Rather than block on that, MODEMENT focuses on the product idea itself:
+- how context is captured
+- how intent is expressed
+- how recommendations are explained
+- how repetition is handled
+
+The system is designed so real listening data could be layered in later without changing the experience.
 
 ---
 
@@ -87,8 +84,13 @@ MODEMENT is designed so these signals could be layered in without changing the c
 
 👉 https://v0-modement.vercel.app/
 
-Tip: switch between **08:30** and **23:30** — that's where it really clicks.
+Tip:
+- Compare morning vs late night
+- Try "working out" vs "chill"
+
+It's not about discovering more music.  
+It's about finding the **right music for the moment**.
 
 ---
 
-Built as an exploration of context-aware recommendations, product design, and explainable personalization.
+Built as a first iteration exploring context-aware, explainable recommendations.
