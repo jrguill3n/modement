@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ExternalLink, AlertCircle, Clock, Info } from "lucide-react"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 interface Track {
   id: string
@@ -55,6 +55,8 @@ const spotifyGenericVibes = ["Upbeat Mix", "Chill Indie", "Popular Picks", "Feel
 const spotifyGenericWhy = "Picked based on your listening habits."
 
 export default function TimeMixPage() {
+  const [view, setView] = useState<"decision" | "recommendations">("decision")
+  const [firstName, setFirstName] = useState<string>("there")
   const [mixData, setMixData] = useState<MixData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -103,10 +105,6 @@ export default function TimeMixPage() {
     setSimulatedTime(`${hours}:${minutes}`)
   }, [])
 
-  useEffect(() => {
-    fetchMix()
-  }, [])
-
   const handleTimeChange = (time: string) => {
     setSimulatedTime(time)
     fetchMix(activeTweak || undefined, time, comparisonMode, situation)
@@ -126,7 +124,14 @@ export default function TimeMixPage() {
 
   const handleSituationChange = (newSituation: string) => {
     setSituation(newSituation)
-    fetchMix(activeTweak, simulatedTime, comparisonMode, newSituation)
+    if (view === "recommendations") {
+      fetchMix(activeTweak, simulatedTime, comparisonMode, newSituation)
+    }
+  }
+
+  const handleContinue = () => {
+    setView("recommendations")
+    fetchMix(activeTweak, simulatedTime, comparisonMode, situation)
   }
 
   const situations = [
@@ -141,6 +146,62 @@ export default function TimeMixPage() {
     "late night",
     "chill",
   ]
+
+  if (view === "decision") {
+    const now = new Date()
+    const timeString = now.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })
+
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-2xl space-y-12 text-center">
+          {/* Greeting */}
+          <h1 className="text-5xl md:text-6xl font-bold leading-tight">
+            Hi, <span className="font-bold">{firstName}</span>
+          </h1>
+
+          {/* Current time */}
+          <p className="text-3xl md:text-4xl text-white/50 font-light">{timeString}</p>
+
+          {/* Primary question */}
+          <div className="space-y-8 pt-4">
+            <h2 className="text-4xl md:text-5xl font-bold leading-tight">What are you doing right now?</h2>
+
+            {/* Situation pills */}
+            <div className="flex flex-wrap justify-center gap-3 pt-4">
+              {situations.map((sit) => (
+                <button
+                  key={sit}
+                  onClick={() => setSituation(sit)}
+                  className={`min-h-[48px] px-6 py-3 rounded-full text-base md:text-lg capitalize transition-all duration-200 ${
+                    situation === sit
+                      ? "bg-white text-black font-semibold shadow-lg"
+                      : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white font-medium"
+                  }`}
+                >
+                  {sit === "auto" ? "Auto" : sit}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Continue button */}
+          <div className="pt-12">
+            <Button
+              onClick={handleContinue}
+              size="lg"
+              className="min-h-[56px] bg-white text-black hover:bg-white/90 text-xl px-16 py-4 h-auto font-bold transition-all duration-200 shadow-xl"
+            >
+              Continue
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -281,257 +342,221 @@ export default function TimeMixPage() {
           </span>
         </div>
       </div>
-      <div className="border-b border-[rgba(255,255,255,0.08)] bg-[#0E0E10]">
-        <div className="container mx-auto px-4 py-2.5 max-w-7xl">
-          <div className="flex items-start gap-3 bg-[#181818] rounded-lg p-3">
-            <Info className="h-4 w-4 text-[#7A7A7A] shrink-0 mt-0.5" />
-            <p className="text-sm text-[#B3B3B3]">
-              <strong className="font-medium text-white">Live Spotify connection coming soon.</strong> Demo currently
-              uses simulated listening history.
-            </p>
-          </div>
+      <div className="container mx-auto px-6 pt-12 pb-8 max-w-4xl">
+        <div className="text-center space-y-6">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight">
+            Decide what to listen to right now.
+          </h1>
+          <p className="text-xl md:text-2xl text-white/70 max-w-3xl mx-auto leading-relaxed">
+            MODEMENT helps you choose music based on your current mode and moment — not just your history.
+          </p>
+          <p className="text-sm md:text-base text-white/50 pt-2">
+            Clear options. Visible reasoning. You stay in control.
+          </p>
         </div>
-      </div>
-      {/* Hero copy */}
-      <div className="text-center space-y-3 mb-6">
-        <h1 className="text-3xl md:text-4xl font-semibold text-white">Decide what to listen to right now.</h1>
-        <p className="text-base md:text-lg text-[#B3B3B3] max-w-2xl mx-auto">
-          MODEMENT helps you choose music based on your current mode and moment — not just your history.
-        </p>
-        <p className="text-xs text-[#7A7A7A]">Clear options. Visible reasoning. You stay in control.</p>
       </div>
 
-      <div className="mb-6 space-y-2">
-        <p className="text-sm text-[#A0A0A0] text-center">What are you doing right now?</p>
-        <div className="flex flex-wrap justify-center gap-2">
-          {situations.map((sit) => (
-            <button
-              key={sit}
-              onClick={() => handleSituationChange(sit)}
-              className={`px-4 py-2 rounded-full text-sm capitalize transition-all duration-200 ${
-                situation === sit
-                  ? "bg-[#1DB954] text-white shadow-md"
-                  : "bg-[#282828] text-[#B3B3B3] hover:bg-[#3E3E3E] hover:text-white"
-              }`}
-            >
-              {sit === "auto" ? "Auto" : sit}
-            </button>
-          ))}
+      <div className="container mx-auto px-6 pb-8 max-w-4xl">
+        <div className="space-y-4">
+          <p className="text-base md:text-lg text-white/60 text-center font-medium">What are you doing right now?</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {situations.map((sit) => (
+              <button
+                key={sit}
+                onClick={() => handleSituationChange(sit)}
+                className={`min-h-[48px] px-5 py-3 rounded-full text-base capitalize transition-all duration-200 font-medium ${
+                  situation === sit
+                    ? "bg-[#1DB954] text-white shadow-lg"
+                    : "bg-[#282828] text-white/70 hover:bg-[#3E3E3E] hover:text-white"
+                }`}
+              >
+                {sit === "auto" ? "Auto" : sit}
+              </button>
+            ))}
+          </div>
+          {situation !== "auto" && (
+            <p className="text-sm text-white/40 text-center pt-2">Refining your MODEMENT for this activity</p>
+          )}
         </div>
-        {situation !== "auto" && (
-          <p className="text-xs text-[#7A7A7A] text-center">Refining your MODEMENT for this activity</p>
-        )}
       </div>
 
       {comparisonMode === "my_engine" && (
-        <div className="text-center mb-6">
-          <p className="text-sm text-[#7A7A7A]">Designed for how you listen in this MODEMENT.</p>
+        <div className="container mx-auto px-6 pb-8 max-w-4xl text-center">
+          <p className="text-base text-white/40">Designed for how you listen in this MODEMENT.</p>
         </div>
       )}
 
-      <div className="border-b border-[rgba(255,255,255,0.08)] bg-[#0E0E10]">
-        <div className="container mx-auto px-4 py-3 max-w-7xl">
-          <div className="flex flex-col gap-3">
-            {/* Test time controls */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-[#7A7A7A]" />
-                <span className="text-sm font-medium text-white">Test time</span>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  type="time"
-                  value={simulatedTime}
-                  onChange={(e) => handleTimeChange(e.target.value)}
-                  className="h-9 px-3 py-2 text-sm rounded-md border border-[rgba(255,255,255,0.08)] bg-[#181818] text-white transition-all duration-150 focus:ring-2 focus:ring-[#1DB954]/20"
-                />
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuickTime("08:30")}
-                    className="h-9 bg-[#181818] border-[rgba(255,255,255,0.08)] text-white hover:bg-[#1F1F1F] transition-all duration-150"
-                  >
-                    08:30
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuickTime("13:00")}
-                    className="h-9 bg-[#181818] border-[rgba(255,255,255,0.08)] text-white hover:bg-[#1F1F1F] transition-all duration-150"
-                  >
-                    13:00
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuickTime("19:30")}
-                    className="h-9 bg-[#181818] border-[rgba(255,255,255,0.08)] text-white hover:bg-[#1F1F1F] transition-all duration-150"
-                  >
-                    19:30
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuickTime("23:30")}
-                    className="h-9 bg-[#181818] border-[rgba(255,255,255,0.08)] text-white hover:bg-[#1F1F1F] transition-all duration-150"
-                  >
-                    23:30
-                  </Button>
-                </div>
-              </div>
+      <div className="container mx-auto px-6 pb-6 max-w-4xl">
+        <div className="flex items-start gap-4 p-6 bg-white/5 rounded-2xl">
+          <Info className="h-5 w-5 text-white/40 shrink-0 mt-1" />
+          <p className="text-base text-white/70 leading-relaxed">
+            <strong className="font-semibold text-white">Live Spotify connection coming soon.</strong> Demo currently
+            uses simulated listening history.
+          </p>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-6 pb-8 max-w-4xl">
+        <div className="space-y-6">
+          {/* Test time controls */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Clock className="h-5 w-5 text-white/40" />
+              <span className="text-base font-semibold text-white">Test time</span>
             </div>
-            {/* Mode controls */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-white">Mode</span>
-              </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="time"
+                value={simulatedTime}
+                onChange={(e) => handleTimeChange(e.target.value)}
+                className="min-h-[48px] px-4 py-3 text-base rounded-xl bg-white/5 text-white transition-all duration-150 focus:ring-2 focus:ring-[#1DB954]/30 border-0"
+              />
               <div className="flex flex-wrap gap-2">
                 <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => handleTweakChange("")}
-                  disabled={loading}
-                  className={`transition-all duration-150 ${
-                    activeTweak === ""
-                      ? "bg-[#1DB954] text-black hover:bg-[#1DB954]/90"
-                      : "bg-[#181818] text-[#B3B3B3] hover:bg-[#1F1F1F]"
-                  }`}
+                  onClick={() => handleQuickTime("08:30")}
+                  className="min-h-[48px] px-5 bg-white/5 text-white hover:bg-white/10 transition-all duration-150 border-0 text-base"
                 >
-                  Balanced
+                  08:30
                 </Button>
                 <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => handleTweakChange("more_new")}
-                  disabled={loading}
-                  className={`transition-all duration-150 ${
-                    activeTweak === "more_new"
-                      ? "bg-[#1DB954] text-black hover:bg-[#1DB954]/90"
-                      : "bg-[#181818] text-[#B3B3B3] hover:bg-[#1F1F1F]"
-                  }`}
+                  onClick={() => handleQuickTime("13:00")}
+                  className="min-h-[48px] px-5 bg-white/5 text-white hover:bg-white/10 transition-all duration-150 border-0 text-base"
                 >
-                  More new
+                  13:00
                 </Button>
                 <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => handleTweakChange("more_familiar")}
-                  disabled={loading}
-                  className={`transition-all duration-150 ${
-                    activeTweak === "more_familiar"
-                      ? "bg-[#1DB954] text-black hover:bg-[#1DB954]/90"
-                      : "bg-[#181818] text-[#B3B3B3] hover:bg-[#1F1F1F]"
-                  }`}
+                  onClick={() => handleQuickTime("19:30")}
+                  className="min-h-[48px] px-5 bg-white/5 text-white hover:bg-white/10 transition-all duration-150 border-0 text-base"
                 >
-                  More familiar
+                  19:30
                 </Button>
                 <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => handleTweakChange("no_repeats")}
-                  disabled={loading}
-                  className={`transition-all duration-150 ${
-                    activeTweak === "no_repeats"
-                      ? "bg-[#1DB954] text-black hover:bg-[#1DB954]/90"
-                      : "bg-[#181818] text-[#B3B3B3] hover:bg-[#1F1F1F]"
-                  }`}
+                  onClick={() => handleQuickTime("23:30")}
+                  className="min-h-[48px] px-5 bg-white/5 text-white hover:bg-white/10 transition-all duration-150 border-0 text-base"
                 >
-                  No repeats
+                  23:30
                 </Button>
               </div>
             </div>
           </div>
+          {/* Mode controls */}
+          <div className="space-y-3">
+            <span className="text-base font-semibold text-white">Mode</span>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                onClick={() => handleTweakChange("")}
+                disabled={loading}
+                className={`min-h-[48px] px-5 text-base transition-all duration-150 ${
+                  activeTweak === ""
+                    ? "bg-[#1DB954] text-black hover:bg-[#1DB954]/90 font-semibold shadow-lg"
+                    : "bg-white/5 text-white/70 hover:bg-white/10 font-medium"
+                }`}
+              >
+                Balanced
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleTweakChange("more_new")}
+                disabled={loading}
+                className={`min-h-[48px] px-5 text-base transition-all duration-150 ${
+                  activeTweak === "more_new"
+                    ? "bg-[#1DB954] text-black hover:bg-[#1DB954]/90 font-semibold shadow-lg"
+                    : "bg-white/5 text-white/70 hover:bg-white/10 font-medium"
+                }`}
+              >
+                More new
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleTweakChange("more_familiar")}
+                disabled={loading}
+                className={`min-h-[48px] px-5 text-base transition-all duration-150 ${
+                  activeTweak === "more_familiar"
+                    ? "bg-[#1DB954] text-black hover:bg-[#1DB954]/90 font-semibold shadow-lg"
+                    : "bg-white/5 text-white/70 hover:bg-white/10 font-medium"
+                }`}
+              >
+                More familiar
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleTweakChange("no_repeats")}
+                disabled={loading}
+                className={`min-h-[48px] px-5 text-base transition-all duration-150 ${
+                  activeTweak === "no_repeats"
+                    ? "bg-[#1DB954] text-black hover:bg-[#1DB954]/90 font-semibold shadow-lg"
+                    : "bg-white/5 text-white/70 hover:bg-white/10 font-medium"
+                }`}
+              >
+                No repeats
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
-      <main className="container mx-auto px-4 py-4 space-y-6 max-w-7xl">
-        <Card className="border-[rgba(255,255,255,0.05)] bg-[#121212] rounded-xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-normal text-[#B3B3B3]">Why this MODEMENT</CardTitle>
-            <p className="text-xs text-[#7A7A7A] mt-1">
-              This mix adapts to your current mode, not just your overall taste.
-            </p>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <ul className="space-y-2 text-sm text-[#7A7A7A]">
-              <li className="flex gap-2">
-                <span className="text-[#7A7A7A] mt-0.5">•</span>
-                <span>
-                  <strong className="font-medium text-[#A0A0A0]">MODE awareness:</strong> MODEMENT adapts to how you
-                  usually listen in different states of the day
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-[#7A7A7A] mt-0.5">•</span>
-                <span>
-                  <strong className="font-medium text-[#A0A0A0]">Explainability:</strong> every track includes a reason,
-                  so the logic is visible, not hidden
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-[#7A7A7A] mt-0.5">•</span>
-                <span>
-                  <strong className="font-medium text-[#A0A0A0]">Control:</strong> you can shift the MODE toward new,
-                  familiar, or zero repeats at any time
-                </span>
-              </li>
-            </ul>
-          </CardContent>
-        </Card>
-        {mixData.blocks.map((block, index) => (
-          <div key={block.id} className="space-y-3">
-            <div className="px-1">
-              <h2 className="text-xl font-medium text-white">
-                {comparisonMode === "spotify_ai" ? spotifyGenericVibes[index] || block.title : block.title}
-              </h2>
-              {comparisonMode === "spotify_ai" ? (
-                <p className="text-sm text-[#A0A0A0] mt-0.5">{spotifyGenericWhy}</p>
-              ) : (
-                <p className="text-sm text-[#A0A0A0] mt-0.5">{block.why_now}</p>
-              )}
-            </div>
-            <div
-              className={`relative -mx-4 px-4 sm:mx-0 sm:px-0 ${index === 0 ? "rounded-xl bg-gradient-to-r from-[#181818]/30 to-transparent p-3 -mx-4 sm:-mx-3 border-l-2 border-[#1DB954]/40" : ""}`}
+      <main className="container mx-auto px-6 pb-12 max-w-4xl">
+        <Accordion type="single" collapsible className="space-y-0">
+          {mixData.blocks.map((block, index) => (
+            <AccordionItem
+              key={block.id}
+              value={block.id}
+              className={`border-b border-white/5 ${index === 0 ? "border-l-4 border-[#1DB954]/50 pl-4" : ""}`}
             >
-              <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-thin">
-                {block.tracks.map((track) => (
-                  <div
-                    key={track.id}
-                    className="flex-none w-[230px] min-h-[180px] bg-[#181818] rounded-xl p-3.5 shadow-sm snap-start group hover:shadow-lg hover:-translate-y-1 hover:bg-[#1F1F1F] transition-all duration-200 cursor-pointer flex flex-col justify-between"
-                  >
-                    <div className="space-y-2">
-                      <div className="flex gap-3">
-                        <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-[#2A2A2A] to-[#1A1A1A] flex items-center justify-center shadow-md">
-                          <span className="text-lg font-bold text-[#B3B3B3]">{track.name.charAt(0).toUpperCase()}</span>
-                        </div>
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <h3 className="font-bold text-sm leading-tight line-clamp-2 text-white">{track.name}</h3>
-                          <p className="text-xs text-[#B3B3B3] line-clamp-1">{track.artist}</p>
-                        </div>
+              <AccordionTrigger className="hover:no-underline py-6 group min-h-[60px]">
+                <div className="flex-1 text-left space-y-2">
+                  <h2 className="text-xl md:text-2xl font-bold text-white group-hover:text-[#1DB954] transition-colors leading-tight">
+                    {comparisonMode === "spotify_ai" ? spotifyGenericVibes[index] || block.title : block.title}
+                  </h2>
+                  {comparisonMode === "spotify_ai" ? (
+                    <p className="text-base text-white/50 leading-relaxed">{spotifyGenericWhy}</p>
+                  ) : (
+                    <p className="text-base text-white/50 leading-relaxed">{block.why_now}</p>
+                  )}
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="pb-6">
+                <div className="space-y-3">
+                  {block.tracks.map((track) => (
+                    <div
+                      key={track.id}
+                      className="flex items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors min-h-[60px]"
+                    >
+                      <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center">
+                        <span className="text-base font-bold text-white/70">{track.name.charAt(0).toUpperCase()}</span>
                       </div>
-                      {comparisonMode === "my_engine" && (
-                        <div className="pl-2.5 border-l-2 border-[#B3B3B3]/20 bg-gradient-to-r from-[#B3B3B3]/5 to-transparent min-h-[40px]">
-                          <p className="text-[11px] text-[#7A7A7A] italic leading-relaxed line-clamp-2 py-1">
-                            {track.reason}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="mt-3 flex justify-end">
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <h3 className="font-bold text-base md:text-lg text-white leading-tight">{track.name}</h3>
+                        <p className="text-sm md:text-base text-white/60">{track.artist}</p>
+                        {comparisonMode === "my_engine" && track.reason && (
+                          <p className="text-sm text-white/40 leading-relaxed">{track.reason}</p>
+                        )}
+                      </div>
                       <Button
                         size="sm"
                         variant="ghost"
                         asChild
-                        className="text-xs h-7 px-3 text-[#1DB954] hover:text-[#1ED760] hover:bg-[#1DB954]/10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200"
+                        className="flex-shrink-0 min-h-[44px] min-w-[44px] p-0 text-[#1DB954] hover:text-[#1ED760] hover:bg-[#1DB954]/10 transition-all"
                       >
                         <a href={track.track_url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="mr-1.5 h-3 w-3" />
-                          Open in Spotify
+                          <ExternalLink className="h-5 w-5" />
                         </a>
                       </Button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
       </main>
     </div>
   )
