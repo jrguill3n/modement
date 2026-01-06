@@ -21,6 +21,7 @@ type Track = {
   name: string
   artist: string
   reason: string
+  reason_signal?: string
   track_url: string
 }
 
@@ -934,6 +935,18 @@ function generateRecommendationBlock(
   }
 }
 
+function getReasonSignal(intent: string): string {
+  const signalMap: Record<string, string> = {
+    focus: "Low distraction",
+    reset: "Mood reset",
+    energy: "Energy fit",
+    ramp: "Energy fit",
+    throwback: "Familiar anchor",
+    discovery: "Fresh angle",
+  }
+  return signalMap[intent] || "Fresh angle"
+}
+
 function buildBlocks(params: {
   bucket: TimeBucket
   tweak: Tweak
@@ -973,13 +986,27 @@ function buildBlocks(params: {
     const usedTemplates = new Set<number>()
 
     const tracks: Track[] = picked.map((t) => {
-      const reason = engine === "spotify_ai" ? "" : ""
+      const reason =
+        engine === "spotify_ai"
+          ? ""
+          : personalTrackReason({
+              track: t,
+              bucket,
+              intent,
+              tweak,
+              localTime,
+              usedHooks,
+              usedTemplates,
+            })
+
+      const reason_signal = engine === "spotify_ai" ? undefined : getReasonSignal(intent)
 
       return {
         id: t.id,
         name: t.name,
         artist: t.artist,
         reason,
+        reason_signal,
         track_url: makeTrackUrl(t.id),
       }
     })
