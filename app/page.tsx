@@ -54,6 +54,8 @@ const spotifyGenericVibes = ["Upbeat Mix", "Chill Indie", "Popular Picks", "Feel
 
 const spotifyGenericWhy = "Picked based on your listening habits."
 
+const artworkCache = new Map<string, string>()
+
 export default function TimeMixPage() {
   const [view, setView] = useState<"decision" | "recommendations">("decision")
   const [firstName, setFirstName] = useState<string>("there")
@@ -64,6 +66,8 @@ export default function TimeMixPage() {
   const [simulatedTime, setSimulatedTime] = useState<string>("")
   const [comparisonMode, setComparisonMode] = useState<"my_engine" | "spotify_ai">("my_engine")
   const [situation, setSituation] = useState<string>("auto")
+  const [expandedBlock, setExpandedBlock] = useState<string | undefined>(undefined)
+  const [loadedArtwork, setLoadedArtwork] = useState<Map<string, string>>(new Map())
 
   const fetchMix = async (tweak?: string, time?: string, engine?: string, situationParam?: string) => {
     setLoading(true)
@@ -90,6 +94,31 @@ export default function TimeMixPage() {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchAlbumArtwork = async (trackUrl: string): Promise<string | null> => {
+    // Check cache first
+    if (artworkCache.has(trackUrl)) {
+      return artworkCache.get(trackUrl) || null
+    }
+
+    try {
+      const response = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(trackUrl)}`)
+      if (!response.ok) return null
+
+      const data = await response.json()
+      const thumbnailUrl = data.thumbnail_url || null
+
+      // Cache the result
+      if (thumbnailUrl) {
+        artworkCache.set(trackUrl, thumbnailUrl)
+      }
+
+      return thumbnailUrl
+    } catch (error) {
+      console.error("[v0] Failed to fetch album artwork:", error)
+      return null
     }
   }
 
@@ -146,6 +175,23 @@ export default function TimeMixPage() {
     "late night",
     "chill",
   ]
+
+  useEffect(() => {
+    if (!expandedBlock || !mixData) return
+
+    const block = mixData.blocks.find((b) => b.id === expandedBlock)
+    if (!block) return
+
+    // Fetch artwork for all tracks in the expanded block
+    block.tracks.forEach(async (track) => {
+      if (!loadedArtwork.has(track.id)) {
+        const artworkUrl = await fetchAlbumArtwork(track.track_url)
+        if (artworkUrl) {
+          setLoadedArtwork((prev) => new Map(prev).set(track.id, artworkUrl))
+        }
+      }
+    })
+  }, [expandedBlock, mixData, loadedArtwork])
 
   if (view === "decision") {
     const now = new Date()
@@ -503,8 +549,14 @@ export default function TimeMixPage() {
           </div>
         </div>
       </div>
-      <main className="container mx-auto px-6 pb-12 max-w-4xl">
-        <Accordion type="single" collapsible className="space-y-0">
+      <main className="min-h-screen bg-black px-4 py-8">
+        <Accordion
+          type="single"
+          collapsible
+          className="space-y-0"
+          value={expandedBlock}
+          onValueChange={setExpandedBlock}
+        >
           {mixData.blocks.map((block, index) => (
             <AccordionItem
               key={block.id}
@@ -525,33 +577,47 @@ export default function TimeMixPage() {
               </AccordionTrigger>
               <AccordionContent className="pb-6">
                 <div className="space-y-3">
-                  {block.tracks.map((track) => (
-                    <div
-                      key={track.id}
-                      className="flex items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors min-h-[60px]"
-                    >
-                      <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center">
-                        <span className="text-base font-bold text-white/70">{track.name.charAt(0).toUpperCase()}</span>
-                      </div>
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <h3 className="font-bold text-base md:text-lg text-white leading-tight">{track.name}</h3>
-                        <p className="text-sm md:text-base text-white/60">{track.artist}</p>
-                        {comparisonMode === "my_engine" && track.reason && (
-                          <p className="text-sm text-white/40 leading-relaxed">{track.reason}</p>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        asChild
-                        className="flex-shrink-0 min-h-[44px] min-w-[44px] p-0 text-[#1DB954] hover:text-[#1ED760] hover:bg-[#1DB954]/10 transition-all"
+                  {block.tracks.map((track) => {
+                    const artworkUrl = loadedArtwork.get(track.id)
+
+                    return (
+                      <div
+                        key={track.id}
+                        className="flex items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors min-h-[60px]"
                       >
-                        <a href={track.track_url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-5 w-5" />
-                        </a>
-                      </Button>
-                    </div>
-                  ))}
+                        <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center">
+                          {artworkUrl ? (
+                            <img
+                              src={artworkUrl || "/placeholder.svg"}
+                              alt={`${track.name} album artwork`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-base font-bold text-white/70">
+                              {track.name.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <h3 className="font-bold text-base md:text-lg text-white leading-tight">{track.name}</h3>
+                          <p className="text-sm md:text-base text-white/60">{track.artist}</p>
+                          {comparisonMode === "my_engine" && track.reason && (
+                            <p className="text-sm text-white/40 leading-relaxed">{track.reason}</p>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          asChild
+                          className="flex-shrink-0 min-h-[44px] min-w-[44px] p-0 text-[#1DB954] hover:text-[#1ED760] hover:bg-[#1DB954]/10 transition-all"
+                        >
+                          <a href={track.track_url} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-5 w-5" />
+                          </a>
+                        </Button>
+                      </div>
+                    )
+                  })}
                 </div>
               </AccordionContent>
             </AccordionItem>

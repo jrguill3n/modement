@@ -169,7 +169,11 @@ function blockPlan(bucket: TimeBucket): Array<{ title: string; subtitle: string;
         subtitle: "Upbeat tracks to get you moving and thinking clearly",
         intent: "energy",
       },
-      { title: "If you need a smooth start", subtitle: "Lighter energy without rushing into anything", intent: "ramp" },
+      {
+        title: "If you need a smooth start",
+        subtitle: "Lighter energy that builds without rushing",
+        intent: "ramp",
+      },
       {
         title: "If you want deep focus",
         subtitle: "Steady, low-distraction tracks that help you stay locked in",
@@ -177,12 +181,12 @@ function blockPlan(bucket: TimeBucket): Array<{ title: string; subtitle: string;
       },
       {
         title: "If you want something different",
-        subtitle: "A fresh angle that still fits your current MODEMENT",
+        subtitle: "A change in texture and mood that still fits right now",
         intent: "discovery",
       },
       {
         title: "If you want something familiar",
-        subtitle: "Reliable favorites that usually work right now",
+        subtitle: "Comfort picks that usually work",
         intent: "throwback",
       },
     ]
@@ -192,17 +196,29 @@ function blockPlan(bucket: TimeBucket): Array<{ title: string; subtitle: string;
     return [
       {
         title: "If you want deep focus",
-        subtitle: "Steady tempo and minimal distraction for sustained work",
+        subtitle: "Predictable energy that stays out of the way",
         intent: "focus",
       },
-      { title: "If you need a mental reset", subtitle: "Light, familiar energy to clear your head", intent: "reset" },
-      { title: "If you need a push", subtitle: "More energy without going full chaos", intent: "energy" },
+      {
+        title: "If you need a mental reset",
+        subtitle: "Light, familiar sounds to clear your head",
+        intent: "reset",
+      },
+      {
+        title: "If you need a push",
+        subtitle: "Upbeat tracks that lift momentum without chaos",
+        intent: "energy",
+      },
       {
         title: "If you want something different",
-        subtitle: "A fresh angle that still fits your current MODEMENT",
+        subtitle: "Something fresh without feeling random",
         intent: "discovery",
       },
-      { title: "If you want something familiar", subtitle: "Songs that feel right at this hour", intent: "throwback" },
+      {
+        title: "If you want something familiar",
+        subtitle: "Reliable songs that feel right without thinking",
+        intent: "throwback",
+      },
     ]
   }
 
@@ -218,7 +234,11 @@ function blockPlan(bucket: TimeBucket): Array<{ title: string; subtitle: string;
         subtitle: "Smooth groove with enough energy to stay present",
         intent: "focus",
       },
-      { title: "If you want to move", subtitle: "Upbeat tracks for cooking, cleaning, or hanging out", intent: "ramp" },
+      {
+        title: "If you want to move",
+        subtitle: "More movement, still controlled",
+        intent: "ramp",
+      },
       {
         title: "If you want something different",
         subtitle: "A fresh angle that still fits your current MODEMENT",
@@ -234,53 +254,71 @@ function blockPlan(bucket: TimeBucket): Array<{ title: string; subtitle: string;
 
   // late night
   return [
-    { title: "If you want energy", subtitle: "More pulse, less chatter for late-night momentum", intent: "energy" },
-    { title: "If you want to stay sharp", subtitle: "Smooth and confident for focused late hours", intent: "focus" },
-    { title: "If you want to move", subtitle: "Bright, housey energy for dancing or staying up", intent: "ramp" },
+    {
+      title: "If you want energy",
+      subtitle: "More pulse, less chatter for late-night momentum",
+      intent: "energy",
+    },
+    {
+      title: "If you want to stay sharp",
+      subtitle: "Steady tracks that keep you locked in without forcing it",
+      intent: "focus",
+    },
+    {
+      title: "If you want to move",
+      subtitle: "Bright energy for dancing or staying up",
+      intent: "ramp",
+    },
     {
       title: "If you want something different",
-      subtitle: "A fresh angle that still fits your current MODEMENT",
+      subtitle: "A change in texture and mood that still fits right now",
       intent: "discovery",
     },
-    { title: "If you want something familiar", subtitle: "Throwback bangers that never miss", intent: "throwback" },
+    {
+      title: "If you want something familiar",
+      subtitle: "Throwback bangers that never miss",
+      intent: "throwback",
+    },
   ]
 }
 
-function blockWhyNow(params: { bucket: TimeBucket; tweak: Tweak; localTime: string; intent: string }) {
-  const { bucket, tweak, localTime, intent } = params
+function blockWhyNow(params: {
+  bucket: TimeBucket
+  tweak: Tweak
+  localTime: string
+  intent: string
+  situation: Situation
+}) {
+  const { tweak, intent, situation } = params
 
-  const tweakLine =
-    tweak === "more_new"
-      ? "Leaning fresher for this session."
-      : tweak === "more_familiar"
-        ? "Keeping it familiar and reliable."
-        : tweak === "no_repeats"
-          ? "Avoiding repeats across blocks."
-          : "Balanced mix."
+  // If situation is selected, mention it once
+  if (situation !== "auto") {
+    const situationContexts: Record<Situation, string> = {
+      auto: "",
+      working: "Since you're working, this MODEMENT favors focus and familiarity.",
+      commuting: "Since you're commuting, this MODEMENT balances energy and familiar hooks.",
+      exercising: "Since you're exercising, this MODEMENT prioritizes high energy and momentum.",
+      relaxing: "Since you're relaxing, this MODEMENT leans toward lighter, easier listening.",
+      socializing: "Since you're socializing, this MODEMENT favors upbeat, crowd-friendly picks.",
+      cooking: "Since you're cooking, this MODEMENT keeps energy steady without demanding attention.",
+      studying: "Since you're studying, this MODEMENT prioritizes low distraction and consistent tempo.",
+      cleaning: "Since you're cleaning, this MODEMENT keeps momentum going with familiar beats.",
+      party: "Since it's party time, this MODEMENT pushes energy and bold choices.",
+    }
+    return situationContexts[situation]
+  }
 
-  const bucketLine =
-    bucket === "morning"
-      ? `It’s ${localTime}. Morning usually calls for momentum and a clean ramp up.`
-      : bucket === "midday"
-        ? `It’s ${localTime}. Midday is best for steady focus and quick mood resets.`
-        : bucket === "evening"
-          ? `It’s ${localTime}. Evening works better with warm energy and smoother transitions.`
-          : `It’s ${localTime}. Late night favors stronger vibe shifts and bolder picks.`
+  // Otherwise, brief intent-based reasoning
+  const intentDescriptions: Record<string, string> = {
+    focus: "Built to keep you locked in without distraction.",
+    reset: "Built to reset your head without slowing you down.",
+    energy: "Built to give you a push when you need it.",
+    ramp: "Built to lift the tempo smoothly.",
+    throwback: "Built around reliable favorites.",
+    discovery: "Built to shift texture while staying grounded.",
+  }
 
-  const intentHint =
-    intent === "focus"
-      ? "Built to keep you locked in."
-      : intent === "reset"
-        ? "Built to reset your head."
-        : intent === "energy"
-          ? "Built to give you a push."
-          : intent === "ramp"
-            ? "Built to lift the tempo smoothly."
-            : intent === "throwback"
-              ? "Built around familiar wins."
-              : "Built to add something new without breaking the vibe."
-
-  return `${bucketLine} ${intentHint} ${tweakLine}`
+  return intentDescriptions[intent] || "Built for your current MODEMENT."
 }
 
 type MockTrack = {
@@ -312,7 +350,7 @@ const MOCK_TRACKS: MockTrack[] = [
     },
   },
   {
-    id: "7w9bgPAmPTtrkt2v16QbA7",
+    id: "7w87IxuO7BDcJ3YUqCyMTT",
     name: "Pumped Up Kicks",
     artist: "Foster The People",
     tags: ["reset", "throwback"],
@@ -325,7 +363,7 @@ const MOCK_TRACKS: MockTrack[] = [
     },
   },
   {
-    id: "5rIYxhV0t5FrNZQQ3K8rXm",
+    id: "60ZGteAEtPCnGE6zevgUcd",
     name: "Mountain Sound",
     artist: "Of Monsters and Men",
     tags: ["reset", "focus"],
@@ -351,7 +389,7 @@ const MOCK_TRACKS: MockTrack[] = [
     },
   },
   {
-    id: "6GyFP1nfCDB8lbD2bG0Hq9",
+    id: "1eyzqe2QqGZUmfcPZtrIyt",
     name: "Midnight City",
     artist: "M83",
     tags: ["energy", "ramp"],
@@ -377,16 +415,16 @@ const MOCK_TRACKS: MockTrack[] = [
     },
   },
   {
-    id: "6TW2wZMy0QEGDq1u52Z6fU",
-    name: "Kids",
-    artist: "MGMT",
-    tags: ["energy", "throwback"],
+    id: "2lwwrWVKdf3LR9lbbhnr6R",
+    name: "Float On",
+    artist: "Modest Mouse",
+    tags: ["reset", "throwback"],
     profile: {
-      genre: "psychedelic pop",
-      era: "late 2000s",
-      vibes: ["euphoric", "nostalgic", "bright"],
-      hook: "big synth outro",
-      focus_noise: "high",
+      genre: "indie rock",
+      era: "mid 2000s",
+      vibes: ["carefree", "optimistic", "loose"],
+      hook: "bouncy guitar riff",
+      focus_noise: "low",
     },
   },
   {
@@ -416,7 +454,7 @@ const MOCK_TRACKS: MockTrack[] = [
     },
   },
   {
-    id: "4MFf2GJoCazQ6q8JqVh1Xd",
+    id: "01iyCAUm8EvOFqVWYJ3dVX",
     name: "Take a Walk",
     artist: "Passion Pit",
     tags: ["energy", "ramp"],
@@ -426,6 +464,19 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["bright", "layered", "urgent"],
       hook: "cascading synths",
       focus_noise: "medium",
+    },
+  },
+  {
+    id: "4prEPl61C8qZpeo3IkYSMl",
+    name: "Sleepyhead",
+    artist: "Passion Pit",
+    tags: ["energy"],
+    profile: {
+      genre: "indie pop",
+      era: "late 2000s",
+      vibes: ["glitchy", "bouncy", "frenetic"],
+      hook: "chopped vocal sample",
+      focus_noise: "high",
     },
   },
   {
@@ -507,7 +558,7 @@ const MOCK_TRACKS: MockTrack[] = [
     },
   },
   {
-    id: "2yFiUJjxkC46SH3yKzKZjG",
+    id: "6K4t31amVTZDgR3sKmwUJJ",
     name: "Bloom",
     artist: "The Paper Kites",
     tags: ["focus", "reset"],
@@ -516,19 +567,6 @@ const MOCK_TRACKS: MockTrack[] = [
       era: "early 2010s",
       vibes: ["delicate", "gentle", "warm"],
       hook: "fingerpicked guitar",
-      focus_noise: "low",
-    },
-  },
-  {
-    id: "6K4t31amVTZDgR3sKmwUJJ",
-    name: "Riptide",
-    artist: "Vance Joy",
-    tags: ["reset", "throwback"],
-    profile: {
-      genre: "indie folk",
-      era: "mid 2010s",
-      vibes: ["bright", "quirky", "simple"],
-      hook: "ukulele riff",
       focus_noise: "low",
     },
   },
@@ -546,7 +584,7 @@ const MOCK_TRACKS: MockTrack[] = [
     },
   },
   {
-    id: "6SPfRUhsLiRwljf86eFcR8",
+    id: "5Z01UMMf7V1o0MzF86s6WJ",
     name: "Best Day Of My Life",
     artist: "American Authors",
     tags: ["energy", "throwback"],
@@ -559,46 +597,7 @@ const MOCK_TRACKS: MockTrack[] = [
     },
   },
   {
-    id: "5rV8B4mB7VvZcM0G6kQ5wX",
-    name: "Stolen Dance",
-    artist: "Milky Chance",
-    tags: ["reset", "evening"],
-    profile: {
-      genre: "indie folk",
-      era: "early 2010s",
-      vibes: ["laid-back", "groovy", "smooth"],
-      hook: "guitar loop",
-      focus_noise: "low",
-    },
-  },
-  {
-    id: "1rfofaqEpACxVEHIZBJe6W",
-    name: "1901",
-    artist: "Phoenix",
-    tags: ["ramp", "throwback"],
-    profile: {
-      genre: "indie rock",
-      era: "late 2000s",
-      vibes: ["tight", "bright", "punchy"],
-      hook: "crisp guitar riff",
-      focus_noise: "medium",
-    },
-  },
-  {
     id: "2EqlS6tkEnglzr7tkKAAYD",
-    name: "Mr. Brightside",
-    artist: "The Killers",
-    tags: ["energy", "throwback"],
-    profile: {
-      genre: "indie rock",
-      era: "mid 2000s",
-      vibes: ["anthemic", "driving", "classic"],
-      hook: "guitar surge",
-      focus_noise: "medium",
-    },
-  },
-  {
-    id: "3AJwUDP919kvQ9QcozQPxg",
     name: "Somebody Told Me",
     artist: "The Killers",
     tags: ["energy", "ramp"],
@@ -611,16 +610,29 @@ const MOCK_TRACKS: MockTrack[] = [
     },
   },
   {
-    id: "5Z01UMMf7V1o0MzF86s6WJ",
-    name: "Some Nights",
-    artist: "fun.",
+    id: "3AJwUDP919kvQ9QcozQPxg",
+    name: "Mr. Brightside",
+    artist: "The Killers",
+    tags: ["energy", "throwback"],
+    profile: {
+      genre: "indie rock",
+      era: "mid 2000s",
+      vibes: ["anthemic", "driving", "classic"],
+      hook: "guitar surge",
+      focus_noise: "medium",
+    },
+  },
+  {
+    id: "5Hroj5K7vLpIG4FNCRIjbP",
+    name: "Best Day Of My Life",
+    artist: "American Authors",
     tags: ["energy", "throwback"],
     profile: {
       genre: "indie pop",
       era: "early 2010s",
-      vibes: ["theatrical", "anthemic", "bold"],
-      hook: "big choir chorus",
-      focus_noise: "high",
+      vibes: ["joyful", "anthemic", "upbeat"],
+      hook: "hand-clap beat",
+      focus_noise: "medium",
     },
   },
 ]
@@ -995,7 +1007,7 @@ function buildBlocks(params: {
       id: `block-${idx}`,
       title: p.title,
       subtitle: p.subtitle,
-      why_now: blockWhyNow({ bucket, tweak, localTime, intent }),
+      why_now: blockWhyNow({ bucket, tweak, localTime, intent, situation }),
       tracks,
     }
   })
