@@ -123,4 +123,41 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Add iOS safe area support and mobile optimizations */
+  html {
+    /* Use modern viewport units for reliable mobile height */
+    min-height: 100svh;
+    min-height: -webkit-fill-available;
+  }
+
+  body {
+    /* Prevent overscroll bounce on iOS */
+    overscroll-behavior-y: none;
+    /* Optimize text rendering on mobile */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Prevent zoom on input focus (iOS Safari) */
+  input[type="text"],
+  input[type="time"],
+  input[type="email"],
+  input[type="password"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+
+  /* Smooth scrolling for all mobile browsers */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Improve button tap behavior on mobile */
+  button {
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
 }

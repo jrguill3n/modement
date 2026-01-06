@@ -202,19 +202,25 @@ export default function TimeMixPage() {
     })
 
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center px-6 py-12">
+      <div
+        className="min-h-[100svh] bg-black text-white flex items-center justify-center px-6 py-12"
+        style={{
+          paddingTop: "max(3rem, env(safe-area-inset-top))",
+          paddingBottom: "max(3rem, env(safe-area-inset-bottom))",
+        }}
+      >
         <div className="w-full max-w-2xl space-y-12 text-center">
           {/* Greeting */}
-          <h1 className="text-5xl md:text-6xl font-bold leading-tight">
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight">
             Hi, <span className="font-bold">{firstName}</span>
           </h1>
 
           {/* Current time */}
-          <p className="text-3xl md:text-4xl text-white/50 font-light">{timeString}</p>
+          <p className="text-3xl md:text-4xl text-white/60 font-light">{timeString}</p>
 
           {/* Primary question */}
           <div className="space-y-8 pt-4">
-            <h2 className="text-4xl md:text-5xl font-bold leading-tight">What are you doing right now?</h2>
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">What are you doing right now?</h2>
 
             {/* Situation pills */}
             <div className="flex flex-wrap justify-center gap-3 pt-4">
@@ -222,7 +228,7 @@ export default function TimeMixPage() {
                 <button
                   key={sit}
                   onClick={() => setSituation(sit)}
-                  className={`min-h-[48px] px-6 py-3 rounded-full text-base md:text-lg capitalize transition-all duration-200 ${
+                  className={`min-h-[52px] px-6 py-3 rounded-full text-lg capitalize transition-all duration-200 touch-manipulation ${
                     situation === sit
                       ? "bg-white text-black font-semibold shadow-lg"
                       : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white font-medium"
@@ -239,7 +245,7 @@ export default function TimeMixPage() {
             <Button
               onClick={handleContinue}
               size="lg"
-              className="min-h-[56px] bg-white text-black hover:bg-white/90 text-xl px-16 py-4 h-auto font-bold transition-all duration-200 shadow-xl"
+              className="min-h-[60px] bg-white text-black hover:bg-white/90 text-xl px-16 py-4 h-auto font-bold transition-all duration-200 shadow-xl touch-manipulation"
             >
               Continue
             </Button>
@@ -251,8 +257,13 @@ export default function TimeMixPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0E0E10]">
-        <header className="sticky top-0 z-10 border-b border-[rgba(255,255,255,0.08)] bg-[#0E0E10] text-white h-14 md:h-16">
+      <div className="min-h-[100svh] bg-[#0E0E10]">
+        <header
+          className="sticky top-0 z-10 border-b border-[rgba(255,255,255,0.08)] bg-[#0E0E10] text-white h-14 md:h-16"
+          style={{
+            paddingTop: "env(safe-area-inset-top)",
+          }}
+        >
           <div className="container mx-auto px-4 h-full max-w-7xl">
             <div className="flex items-center justify-between h-full gap-4">
               {/* Left: App name */}
@@ -287,8 +298,13 @@ export default function TimeMixPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#0E0E10]">
-        <header className="sticky top-0 z-10 border-b border-[rgba(255,255,255,0.08)] bg-[#0E0E10] text-white h-14 md:h-16">
+      <div className="min-h-[100svh] bg-[#0E0E10]">
+        <header
+          className="sticky top-0 z-10 border-b border-[rgba(255,255,255,0.08)] bg-[#0E0E10] text-white h-14 md:h-16"
+          style={{
+            paddingTop: "env(safe-area-inset-top)",
+          }}
+        >
           <div className="container mx-auto px-4 h-full max-w-7xl">
             <div className="flex items-center h-full">
               <h1 className="text-base md:text-lg tracking-tight leading-none">
@@ -326,10 +342,15 @@ export default function TimeMixPage() {
   if (!mixData) return null
 
   return (
-    <div className="min-h-screen bg-[#0E0E10]">
-      <header className="sticky top-0 z-10 border-b border-[rgba(255,255,255,0.08)] bg-[#0E0E10] text-white h-14 md:h-16 transition-all duration-150">
+    <div className="min-h-[100svh] bg-[#0E0E10]">
+      <header
+        className="sticky top-0 z-10 border-b border-[rgba(255,255,255,0.08)] bg-[#0E0E10] text-white min-h-[56px] md:min-h-[64px] transition-all duration-150"
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+        }}
+      >
         <div className="container mx-auto px-4 h-full max-w-7xl">
-          <div className="flex items-center justify-between h-full gap-4">
+          <div className="flex items-center justify-between min-h-[56px] md:min-h-[64px] gap-4">
             {/* Left: App name */}
             <div className="flex items-center flex-shrink-0">
               <h1 className="text-base md:text-lg tracking-tight leading-none relative">
@@ -378,7 +399,7 @@ export default function TimeMixPage() {
         </div>
       </header>
       <div className="md:hidden border-b border-[rgba(255,255,255,0.08)] bg-[#0E0E10]">
-        <div className="container mx-auto px-4 py-2 flex items-center justify-center gap-2 max-w-7xl">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-center gap-2 max-w-7xl">
           <span className="text-xs text-[#B3B3B3]">{mixData.local_time_display}</span>
           {simulatedTime && <span className="text-xs text-[#1DB954]/70">(Testing: {simulatedTime})</span>}
           <span
@@ -390,13 +411,13 @@ export default function TimeMixPage() {
       </div>
       <div className="container mx-auto px-6 pt-12 pb-8 max-w-4xl">
         <div className="text-center space-y-6">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-[1.1] tracking-tight">
             Decide what to listen to right now.
           </h1>
-          <p className="text-xl md:text-2xl text-white/70 max-w-3xl mx-auto leading-relaxed">
+          <p className="text-lg md:text-xl lg:text-2xl text-white/80 max-w-3xl mx-auto leading-relaxed">
             MODEMENT helps you choose music based on your current mode and moment — not just your history.
           </p>
-          <p className="text-sm md:text-base text-white/50 pt-2">
+          <p className="text-base md:text-lg text-white/60 pt-2 leading-relaxed">
             Clear options. Visible reasoning. You stay in control.
           </p>
         </div>
@@ -404,13 +425,13 @@ export default function TimeMixPage() {
 
       <div className="container mx-auto px-6 pb-8 max-w-4xl">
         <div className="space-y-4">
-          <p className="text-base md:text-lg text-white/60 text-center font-medium">What are you doing right now?</p>
+          <p className="text-lg md:text-xl text-white/70 text-center font-medium">What are you doing right now?</p>
           <div className="flex flex-wrap justify-center gap-3">
             {situations.map((sit) => (
               <button
                 key={sit}
                 onClick={() => handleSituationChange(sit)}
-                className={`min-h-[48px] px-5 py-3 rounded-full text-base capitalize transition-all duration-200 font-medium ${
+                className={`min-h-[52px] px-6 py-3 rounded-full text-base md:text-lg capitalize transition-all duration-200 font-medium touch-manipulation ${
                   situation === sit
                     ? "bg-[#1DB954] text-white shadow-lg"
                     : "bg-[#282828] text-white/70 hover:bg-[#3E3E3E] hover:text-white"
@@ -421,21 +442,25 @@ export default function TimeMixPage() {
             ))}
           </div>
           {situation !== "auto" && (
-            <p className="text-sm text-white/40 text-center pt-2">Refining your MODEMENT for this activity</p>
+            <p className="text-sm md:text-base text-white/50 text-center pt-2 leading-relaxed">
+              Refining your MODEMENT for this activity
+            </p>
           )}
         </div>
       </div>
 
       {comparisonMode === "my_engine" && (
         <div className="container mx-auto px-6 pb-8 max-w-4xl text-center">
-          <p className="text-base text-white/40">Designed for how you listen in this MODEMENT.</p>
+          <p className="text-base md:text-lg text-white/50 leading-relaxed">
+            Designed for how you listen in this MODEMENT.
+          </p>
         </div>
       )}
 
       <div className="container mx-auto px-6 pb-6 max-w-4xl">
         <div className="flex items-start gap-4 p-6 bg-white/5 rounded-2xl">
-          <Info className="h-5 w-5 text-white/40 shrink-0 mt-1" />
-          <p className="text-base text-white/70 leading-relaxed">
+          <Info className="h-5 w-5 text-white/50 shrink-0 mt-1" />
+          <p className="text-base md:text-lg text-white/80 leading-relaxed">
             <strong className="font-semibold text-white">Live Spotify connection coming soon.</strong> Demo currently
             uses simulated listening history.
           </p>
@@ -447,61 +472,41 @@ export default function TimeMixPage() {
           {/* Test time controls */}
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <Clock className="h-5 w-5 text-white/40" />
-              <span className="text-base font-semibold text-white">Test time</span>
+              <Clock className="h-5 w-5 text-white/50" />
+              <span className="text-lg font-semibold text-white">Test time</span>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <input
                 type="time"
                 value={simulatedTime}
                 onChange={(e) => handleTimeChange(e.target.value)}
-                className="min-h-[48px] px-4 py-3 text-base rounded-xl bg-white/5 text-white transition-all duration-150 focus:ring-2 focus:ring-[#1DB954]/30 border-0"
+                className="min-h-[52px] px-4 py-3 text-base rounded-xl bg-white/5 text-white transition-all duration-150 focus:ring-2 focus:ring-[#1DB954]/30 border-0"
+                style={{ fontSize: "16px" }}
               />
               <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickTime("08:30")}
-                  className="min-h-[48px] px-5 bg-white/5 text-white hover:bg-white/10 transition-all duration-150 border-0 text-base"
-                >
-                  08:30
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickTime("13:00")}
-                  className="min-h-[48px] px-5 bg-white/5 text-white hover:bg-white/10 transition-all duration-150 border-0 text-base"
-                >
-                  13:00
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickTime("19:30")}
-                  className="min-h-[48px] px-5 bg-white/5 text-white hover:bg-white/10 transition-all duration-150 border-0 text-base"
-                >
-                  19:30
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickTime("23:30")}
-                  className="min-h-[48px] px-5 bg-white/5 text-white hover:bg-white/10 transition-all duration-150 border-0 text-base"
-                >
-                  23:30
-                </Button>
+                {["08:30", "13:00", "19:30", "23:30"].map((time) => (
+                  <Button
+                    key={time}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleQuickTime(time)}
+                    className="min-h-[52px] px-5 bg-white/5 text-white hover:bg-white/10 transition-all duration-150 border-0 text-base touch-manipulation"
+                  >
+                    {time}
+                  </Button>
+                ))}
               </div>
             </div>
           </div>
           {/* Mode controls */}
           <div className="space-y-3">
-            <span className="text-base font-semibold text-white">Mode</span>
+            <span className="text-lg font-semibold text-white">Mode</span>
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
                 onClick={() => handleTweakChange("")}
                 disabled={loading}
-                className={`min-h-[48px] px-5 text-base transition-all duration-150 ${
+                className={`min-h-[52px] px-6 text-base transition-all duration-150 touch-manipulation ${
                   activeTweak === ""
                     ? "bg-[#1DB954] text-black hover:bg-[#1DB954]/90 font-semibold shadow-lg"
                     : "bg-white/5 text-white/70 hover:bg-white/10 font-medium"
@@ -513,7 +518,7 @@ export default function TimeMixPage() {
                 size="sm"
                 onClick={() => handleTweakChange("more_new")}
                 disabled={loading}
-                className={`min-h-[48px] px-5 text-base transition-all duration-150 ${
+                className={`min-h-[52px] px-6 text-base transition-all duration-150 touch-manipulation ${
                   activeTweak === "more_new"
                     ? "bg-[#1DB954] text-black hover:bg-[#1DB954]/90 font-semibold shadow-lg"
                     : "bg-white/5 text-white/70 hover:bg-white/10 font-medium"
@@ -525,7 +530,7 @@ export default function TimeMixPage() {
                 size="sm"
                 onClick={() => handleTweakChange("more_familiar")}
                 disabled={loading}
-                className={`min-h-[48px] px-5 text-base transition-all duration-150 ${
+                className={`min-h-[52px] px-6 text-base transition-all duration-150 touch-manipulation ${
                   activeTweak === "more_familiar"
                     ? "bg-[#1DB954] text-black hover:bg-[#1DB954]/90 font-semibold shadow-lg"
                     : "bg-white/5 text-white/70 hover:bg-white/10 font-medium"
@@ -537,7 +542,7 @@ export default function TimeMixPage() {
                 size="sm"
                 onClick={() => handleTweakChange("no_repeats")}
                 disabled={loading}
-                className={`min-h-[48px] px-5 text-base transition-all duration-150 ${
+                className={`min-h-[52px] px-6 text-base transition-all duration-150 touch-manipulation ${
                   activeTweak === "no_repeats"
                     ? "bg-[#1DB954] text-black hover:bg-[#1DB954]/90 font-semibold shadow-lg"
                     : "bg-white/5 text-white/70 hover:bg-white/10 font-medium"
@@ -549,7 +554,12 @@ export default function TimeMixPage() {
           </div>
         </div>
       </div>
-      <main className="min-h-screen bg-black px-4 py-8">
+      <main
+        className="min-h-screen bg-black px-4 py-8"
+        style={{
+          paddingBottom: "max(2rem, env(safe-area-inset-bottom))",
+        }}
+      >
         <Accordion
           type="single"
           collapsible
@@ -563,19 +573,19 @@ export default function TimeMixPage() {
               value={block.id}
               className={`border-b border-white/5 ${index === 0 ? "border-l-4 border-[#1DB954]/50 pl-4" : ""}`}
             >
-              <AccordionTrigger className="hover:no-underline py-6 group min-h-[60px]">
-                <div className="flex-1 text-left space-y-2">
+              <AccordionTrigger className="hover:no-underline py-6 group min-h-[80px] touch-manipulation">
+                <div className="flex-1 text-left space-y-2 pr-4">
                   <h2 className="text-xl md:text-2xl font-bold text-white group-hover:text-[#1DB954] transition-colors leading-tight">
                     {comparisonMode === "spotify_ai" ? spotifyGenericVibes[index] || block.title : block.title}
                   </h2>
                   {comparisonMode === "spotify_ai" ? (
-                    <p className="text-base text-white/50 leading-relaxed">{spotifyGenericWhy}</p>
+                    <p className="text-base md:text-lg text-white/60 leading-relaxed">{spotifyGenericWhy}</p>
                   ) : (
-                    <p className="text-base text-white/50 leading-relaxed">{block.why_now}</p>
+                    <p className="text-base md:text-lg text-white/60 leading-relaxed">{block.why_now}</p>
                   )}
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="pb-6">
+              <AccordionContent className="pb-6 transition-all duration-300 ease-in-out">
                 <div className="space-y-3">
                   {block.tracks.map((track) => {
                     const artworkUrl = loadedArtwork.get(track.id)
@@ -583,9 +593,9 @@ export default function TimeMixPage() {
                     return (
                       <div
                         key={track.id}
-                        className="flex items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors min-h-[60px]"
+                        className="flex items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors min-h-[72px]"
                       >
-                        <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center">
+                        <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center">
                           {artworkUrl ? (
                             <img
                               src={artworkUrl || "/placeholder.svg"}
@@ -593,23 +603,23 @@ export default function TimeMixPage() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <span className="text-base font-bold text-white/70">
+                            <span className="text-lg font-bold text-white/70">
                               {track.name.charAt(0).toUpperCase()}
                             </span>
                           )}
                         </div>
                         <div className="flex-1 min-w-0 space-y-2">
                           <h3 className="font-bold text-base md:text-lg text-white leading-tight">{track.name}</h3>
-                          <p className="text-sm md:text-base text-white/60">{track.artist}</p>
+                          <p className="text-sm md:text-base text-white/70">{track.artist}</p>
                           {comparisonMode === "my_engine" && track.reason && (
-                            <p className="text-sm text-white/40 leading-relaxed">{track.reason}</p>
+                            <p className="text-sm md:text-base text-white/50 leading-relaxed">{track.reason}</p>
                           )}
                         </div>
                         <Button
                           size="sm"
                           variant="ghost"
                           asChild
-                          className="flex-shrink-0 min-h-[44px] min-w-[44px] p-0 text-[#1DB954] hover:text-[#1ED760] hover:bg-[#1DB954]/10 transition-all"
+                          className="flex-shrink-0 min-h-[48px] min-w-[48px] p-0 text-[#1DB954] hover:text-[#1ED760] hover:bg-[#1DB954]/10 transition-all touch-manipulation"
                         >
                           <a href={track.track_url} target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="h-5 w-5" />
