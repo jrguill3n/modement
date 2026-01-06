@@ -226,7 +226,7 @@ export default function Home() {
                   onClick={() => handleSituationChange(sit)}
                   className={`min-h-[52px] px-6 py-3 rounded-full text-lg capitalize transition-all duration-200 touch-manipulation ${
                     situation === sit
-                      ? "bg-white text-black font-semibold shadow-lg"
+                      ? "bg-[#1DB954] text-black font-semibold shadow-lg"
                       : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white font-medium"
                   }`}
                 >
@@ -241,7 +241,7 @@ export default function Home() {
             <Button
               onClick={() => setView("recommendations")}
               size="lg"
-              className="min-h-[60px] bg-white text-black hover:bg-white/90 text-xl px-16 py-4 h-auto font-bold transition-all duration-200 shadow-xl touch-manipulation"
+              className="min-h-[60px] bg-[#1DB954] text-black hover:bg-[#1ed760] text-xl px-16 py-4 h-auto font-bold transition-all duration-200 shadow-xl touch-manipulation"
             >
               Continue
             </Button>
@@ -386,10 +386,10 @@ export default function Home() {
               <button
                 key={sit}
                 onClick={() => handleSituationChange(sit)}
-                className={`min-h-[52px] px-6 py-3 rounded-full text-base md:text-lg capitalize transition-all duration-200 font-medium touch-manipulation ${
+                className={`min-h-[52px] px-6 py-3 rounded-full text-lg capitalize transition-all duration-200 touch-manipulation ${
                   situation === sit
-                    ? "bg-[#1DB954] text-white shadow-lg"
-                    : "bg-[#282828] text-white/70 hover:bg-[#3E3E3E] hover:text-white"
+                    ? "bg-[#1DB954] text-black font-semibold shadow-lg"
+                    : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white font-medium"
                 }`}
               >
                 {sit === "auto" ? "Auto" : sit}
@@ -541,7 +541,15 @@ export default function Home() {
                               <img
                                 src={artworkUrl || "/placeholder.svg"}
                                 alt={`${track.name} album artwork`}
+                                width={56}
+                                height={56}
                                 className="w-full h-full object-cover"
+                                loading="lazy"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none"
+                                  e.currentTarget.parentElement!.innerHTML =
+                                    `<span class="text-lg font-bold text-white/70">${track.name.charAt(0).toUpperCase()}</span>`
+                                }}
                               />
                             ) : (
                               <span className="text-lg font-bold text-white/70">
