@@ -190,7 +190,7 @@ const SITUATION_BLOCKS: Record<Situation, BlockIntent[]> = {
     { title: "If you want high energy", subtitle: "Drive and intensity to push harder", intent: "energy" },
     { title: "If you want steady momentum", subtitle: "Consistent rhythm to keep you moving", intent: "ramp" },
     { title: "If you want familiar fuel", subtitle: "Songs you know that keep you going", intent: "throwback" },
-    { title: "If you want to switch it up", subtitle: "New angles that still match your pace", intent: "discovery" },
+    { title: "If you want to switch it up", subtitle: "Fresh angles that still match your pace", intent: "discovery" },
   ],
   walking: [
     { title: "If you want easy flow", subtitle: "Relaxed pace that matches your steps", intent: "reset" },
@@ -238,19 +238,48 @@ const SITUATION_BLOCKS: Record<Situation, BlockIntent[]> = {
   ],
 }
 
+const ALLOWED_INTENTS: Record<Situation, Set<string>> = {
+  auto: new Set(["focus", "energy", "ramp", "reset", "throwback", "discovery"]), // All intents allowed
+  working: new Set(["focus", "reset", "throwback", "ramp"]), // No high energy, no discovery
+  studying: new Set(["focus", "reset", "throwback", "ramp"]), // No high energy, no discovery
+  working_out: new Set(["energy", "ramp", "throwback", "discovery"]), // NEVER focus, NEVER reset
+  walking: new Set(["reset", "ramp", "throwback", "discovery"]), // Calm movement, no intensity
+  dinner: new Set(["reset", "throwback", "ramp", "discovery"]), // Background vibes, no focus/high energy
+  hanging_out: new Set(["reset", "throwback", "energy", "discovery"]), // Social energy, no deep focus
+  party: new Set(["energy", "ramp", "throwback", "discovery"]), // NEVER focus, NEVER reset
+  late_night: new Set(["energy", "focus", "throwback", "reset"]), // Can vary widely late night
+  chill: new Set(["reset", "throwback", "focus", "discovery"]), // Calm activities, no high energy
+}
+
 function blockPlan(
   bucket: TimeBucket,
   situation: Situation,
 ): Array<{ title: string; subtitle: string; intent: string }> {
+  // If situation is specified, return ONLY the pre-configured blocks for that situation
   if (situation !== "auto" && SITUATION_BLOCKS[situation]) {
-    return SITUATION_BLOCKS[situation]
+    const blocks = SITUATION_BLOCKS[situation]
+    const allowedIntents = ALLOWED_INTENTS[situation]
+
+    // Validate all blocks use allowed intents (safety check)
+    const validBlocks = blocks.filter((block) => allowedIntents.has(block.intent))
+
+    // Ensure at least 3 blocks
+    if (validBlocks.length < 3) {
+      console.error(`[MODEMENT] Situation "${situation}" has only ${validBlocks.length} valid blocks`)
+    }
+
+    return validBlocks
   }
 
+  // Auto mode: use time-based blocks
+  const allowedIntents = ALLOWED_INTENTS.auto
+  let timeBlocks: Array<{ title: string; subtitle: string; intent: string }> = []
+
   if (bucket === "morning") {
-    return [
+    timeBlocks = [
       {
         title: "If you want momentum",
-        subtitle: "", // Will be populated dynamically
+        subtitle: "",
         intent: "energy",
       },
       {
@@ -274,10 +303,8 @@ function blockPlan(
         intent: "throwback",
       },
     ]
-  }
-
-  if (bucket === "midday") {
-    return [
+  } else if (bucket === "midday") {
+    timeBlocks = [
       {
         title: "If you want deep focus",
         subtitle: "",
@@ -304,10 +331,8 @@ function blockPlan(
         intent: "throwback",
       },
     ]
-  }
-
-  if (bucket === "evening") {
-    return [
+  } else if (bucket === "evening") {
+    timeBlocks = [
       {
         title: "If you want to unwind",
         subtitle: "",
@@ -334,36 +359,34 @@ function blockPlan(
         intent: "throwback",
       },
     ]
+  } else {
+    // late night
+    timeBlocks = [
+      {
+        title: "If you want sustained energy",
+        subtitle: "",
+        intent: "energy",
+      },
+      {
+        title: "If you want to wind down",
+        subtitle: "",
+        intent: "reset",
+      },
+      {
+        title: "If you want something familiar",
+        subtitle: "",
+        intent: "throwback",
+      },
+      {
+        title: "If you want something different",
+        subtitle: "",
+        intent: "discovery",
+      },
+    ]
   }
 
-  // late night
-  return [
-    {
-      title: "If you want energy",
-      subtitle: "",
-      intent: "energy",
-    },
-    {
-      title: "If you want to stay sharp",
-      subtitle: "",
-      intent: "focus",
-    },
-    {
-      title: "If you want to move",
-      subtitle: "",
-      intent: "ramp",
-    },
-    {
-      title: "If you want something different",
-      subtitle: "",
-      intent: "discovery",
-    },
-    {
-      title: "If you want something familiar",
-      subtitle: "",
-      intent: "throwback",
-    },
-  ]
+  // Filter time blocks to only allowed intents (safety for auto mode)
+  return timeBlocks.filter((block) => allowedIntents.has(block.intent))
 }
 
 function blockWhyNow(params: {
