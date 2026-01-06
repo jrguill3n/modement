@@ -209,12 +209,10 @@ export default function Home() {
       >
         <div className="w-full max-w-2xl space-y-12 text-center">
           {/* Greeting */}
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight">
-            Hi, <span className="font-bold">there</span>
-          </h1>
-
-          {/* Current time */}
-          <p className="text-3xl md:text-4xl text-white/60 font-light">{timeString}</p>
+          <div className="space-y-4">
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight">Hey, there!</h1>
+            <p className="text-3xl md:text-4xl text-white/60 font-light">It's {timeString}</p>
+          </div>
 
           {/* Primary question */}
           <div className="space-y-8 pt-4">
