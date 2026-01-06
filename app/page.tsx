@@ -23,11 +23,23 @@ interface Block {
   tracks: Track[]
 }
 
-interface MixResponse {
-  generated_at: string
+interface Mix {
+  time_bucket: string
   local_time_display: string
-  time_bucket: "morning" | "midday" | "evening" | "late_night"
-  blocks: Block[]
+  situation_used?: string // Added for debug display
+  blocks: {
+    title: string
+    subtitle: string
+    why_now: string
+    tracks: {
+      id: string
+      name: string
+      artist: string
+      track_url: string
+      reason: string
+      reason_signal?: string
+    }[]
+  }[]
 }
 
 const timeBucketColors = {
@@ -60,15 +72,15 @@ const artworkCache = new Map<string, string>()
 export default function Home() {
   const [view, setView] = useState<"decision" | "recommendations">("decision")
   const [situation, setSituation] = useState<string>("auto")
-  const [mix, setMix] = useState<MixResponse | null>(null)
+  const [mix, setMix] = useState<Mix | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [testTime, setTestTime] = useState<string>("")
   const [simulatedTime, setSimulatedTime] = useState<string>("")
   const [tweak, setTweak] = useState<string>("balanced")
-  const [expandedBlock, setExpandedBlock] = useState<string | undefined>(undefined)
   const [loadedArtwork, setLoadedArtwork] = useState<Map<string, string>>(new Map())
   const [expandedReasons, setExpandedReasons] = useState<Set<string>>(new Set())
+  const [accordionKey, setAccordionKey] = useState<number>(0)
 
   const fetchMix = async () => {
     setLoading(true)
@@ -76,8 +88,11 @@ export default function Home() {
     try {
       const params = new URLSearchParams()
       params.append("tweak", tweak)
-      params.append("time", simulatedTime)
       params.append("situation", situation)
+      if (simulatedTime) {
+        params.append("time", simulatedTime)
+      }
+      params.append("engine", "my_engine")
 
       const response = await fetch(`/api/mix?${params.toString()}`)
       if (!response.ok) throw new Error("Failed to fetch mix")
@@ -121,17 +136,16 @@ export default function Home() {
 
   const handleSituationChange = (sit: string) => {
     setSituation(sit)
-    fetchMix()
+    setExpandedReasons(new Set())
+    setAccordionKey((prev) => prev + 1) // Force accordion reset
   }
 
   const handleTweakChange = (newTweak: string) => {
     setTweak(newTweak)
-    fetchMix()
   }
 
   const handleTimeChange = (newTime: string) => {
     setSimulatedTime(newTime)
-    fetchMix()
   }
 
   const handleQuickTime = (time: string) => {
@@ -158,93 +172,62 @@ export default function Home() {
     const hours = String(now.getHours()).padStart(2, "0")
     const minutes = String(now.getMinutes()).padStart(2, "0")
     setSimulatedTime(`${hours}:${minutes}`)
-    fetchMix()
   }, [])
 
   useEffect(() => {
-    if (!expandedBlock || !mix) return
-
-    const block = mix.blocks.find((b) => b.id === expandedBlock)
-    if (!block) return
-
-    // Fetch artwork for all tracks in the expanded block
-    block.tracks.forEach(async (track) => {
-      if (!loadedArtwork.has(track.id)) {
-        const artworkUrl = await fetchAlbumArtwork(track.track_url)
-        if (artworkUrl) {
-          setLoadedArtwork((prev) => new Map(prev).set(track.id, artworkUrl))
-        }
-      }
-    })
-  }, [expandedBlock, mix, loadedArtwork])
+    if (situation !== "auto") {
+      fetchMix()
+    }
+  }, [situation, tweak, simulatedTime])
 
   const situations = [
-    "auto",
-    "working",
-    "studying",
-    "working out",
-    "dinner",
-    "hanging out",
-    "party",
-    "walking",
-    "late night",
-    "chill",
+    { key: "auto", label: "Auto" },
+    { key: "working", label: "Working" },
+    { key: "studying", label: "Studying" },
+    { key: "working_out", label: "Working out" },
+    { key: "dinner", label: "Dinner" },
+    { key: "party", label: "Party" },
+    { key: "chill", label: "Chill" },
   ]
 
   if (view === "decision") {
-    const now = new Date()
-    const timeString = now.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    })
-
     return (
       <div
-        className="min-h-[100svh] bg-black text-white flex items-center justify-center px-6 py-12"
+        className="min-h-screen bg-black flex flex-col items-center justify-center px-6 py-8"
         style={{
-          paddingTop: "max(3rem, env(safe-area-inset-top))",
-          paddingBottom: "max(3rem, env(safe-area-inset-bottom))",
+          minHeight: "100svh",
+          paddingTop: "max(2rem, env(safe-area-inset-top))",
+          paddingBottom: "max(2rem, env(safe-area-inset-bottom))",
         }}
       >
-        <div className="w-full max-w-2xl space-y-12 text-center">
-          {/* Greeting */}
-          <div className="space-y-4">
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight">Hey, there!</h1>
-            <p className="text-3xl md:text-4xl text-white/60 font-light">It's {timeString}</p>
+        <div className="w-full max-w-2xl space-y-12">
+          <div className="space-y-3 text-center">
+            <h1 className="text-4xl md:text-5xl font-bold text-white leading-tight">Hey, there!</h1>
+            <p className="text-2xl md:text-3xl text-white/70 leading-snug">
+              It's {simulatedTime || new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+            </p>
           </div>
 
-          {/* Primary question */}
-          <div className="space-y-8 pt-4">
-            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">What are you doing right now?</h2>
+          <div className="space-y-6">
+            <h2 className="text-2xl md:text-3xl font-semibold text-white text-center leading-tight">
+              What are you doing right now?
+            </h2>
 
-            {/* Situation pills */}
-            <div className="flex flex-wrap justify-center gap-3 pt-4">
+            <div className="flex flex-wrap justify-center gap-3">
               {situations.map((sit) => (
                 <button
-                  key={sit}
-                  onClick={() => handleSituationChange(sit)}
+                  key={sit.key}
+                  onClick={() => handleSituationChange(sit.key)}
                   className={`min-h-[52px] px-6 py-3 rounded-full text-lg capitalize transition-all duration-200 touch-manipulation ${
-                    situation === sit
+                    situation === sit.key
                       ? "bg-[#1DB954] text-black font-semibold shadow-lg"
                       : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white font-medium"
                   }`}
                 >
-                  {sit === "auto" ? "Auto" : sit}
+                  {sit.label}
                 </button>
               ))}
             </div>
-          </div>
-
-          {/* Continue button */}
-          <div className="pt-12">
-            <Button
-              onClick={() => setView("recommendations")}
-              size="lg"
-              className="min-h-[60px] bg-[#1DB954] text-black hover:bg-[#1ed760] text-xl px-16 py-4 h-auto font-bold transition-all duration-200 shadow-xl touch-manipulation"
-            >
-              Continue
-            </Button>
           </div>
         </div>
       </div>
@@ -337,8 +320,14 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col" style={{ minHeight: "100svh" }}>
+      {process.env.NODE_ENV === "development" && mix && (
+        <div className="fixed top-20 left-4 bg-black/80 text-white/70 text-xs px-3 py-2 rounded border border-white/10 z-50">
+          situation: {situation} | api: {mix.situation_used || "unknown"}
+        </div>
+      )}
+
       <header
-        className="sticky top-0 z-50 bg-[#0A0A0A] border-b border-white/5 safe-area-top"
+        className="sticky top-0 z-40 bg-[#0A0A0A] border-b border-white/5"
         style={{
           paddingTop: "env(safe-area-inset-top)",
         }}
@@ -384,15 +373,15 @@ export default function Home() {
           <div className="flex flex-wrap justify-center gap-3">
             {situations.map((sit) => (
               <button
-                key={sit}
-                onClick={() => handleSituationChange(sit)}
+                key={sit.key}
+                onClick={() => handleSituationChange(sit.key)}
                 className={`min-h-[52px] px-6 py-3 rounded-full text-lg capitalize transition-all duration-200 touch-manipulation ${
-                  situation === sit
+                  situation === sit.key
                     ? "bg-[#1DB954] text-black font-semibold shadow-lg"
                     : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white font-medium"
                 }`}
               >
-                {sit === "auto" ? "Auto" : sit}
+                {sit.label}
               </button>
             ))}
           </div>
@@ -508,17 +497,14 @@ export default function Home() {
           paddingBottom: "max(2rem, env(safe-area-inset-bottom))",
         }}
       >
-        <Accordion type="single" collapsible className="space-y-4">
+        <Accordion key={accordionKey} type="single" collapsible className="space-y-4">
           {mix.blocks.map((block, index) => (
             <AccordionItem
               key={index}
               value={`block-${index}`}
               className={`border-b border-white/5 ${index === 0 ? "border-l-4 border-[#1DB954]/50 pl-4" : ""}`}
             >
-              <AccordionTrigger
-                className="hover:no-underline px-6 py-6 md:px-8 md:py-8"
-                onClick={() => setExpandedBlock(block.id)}
-              >
+              <AccordionTrigger className="hover:no-underline px-6 py-6 md:px-8 md:py-8">
                 <div className="flex flex-col items-start gap-3 text-left w-full pr-4">
                   <h2 className="text-xl md:text-2xl font-medium text-white leading-tight">{block.title}</h2>
                   <p className="text-base md:text-lg text-white/60 leading-relaxed">
@@ -602,7 +588,9 @@ export default function Home() {
                                   </span>
                                 </div>
                               )}
-                              <p className="text-xs md:text-sm text-white/50 leading-relaxed">{track.reason}</p>
+                              <p className="text-xs md:text-sm text-white/50 leading-relaxed line-clamp-2">
+                                {track.reason}
+                              </p>
                             </div>
                           </div>
                         )}

@@ -4,17 +4,7 @@ import { type NextRequest, NextResponse } from "next/server"
 type TimeBucket = "morning" | "midday" | "evening" | "late_night"
 type Tweak = "more_new" | "more_familiar" | "no_repeats" | "none"
 type EngineMode = "my_engine" | "spotify_ai"
-type Situation =
-  | "working"
-  | "studying"
-  | "working_out"
-  | "walking"
-  | "dinner"
-  | "hanging_out"
-  | "party"
-  | "late_night"
-  | "chill"
-  | "auto"
+type Situation = "working_out" | "working" | "studying" | "dinner" | "party" | "chill" | "auto"
 
 type Track = {
   id: string
@@ -52,6 +42,9 @@ type MixResponse = {
   time_bucket: TimeBucket
   engine: EngineMode
   tweak: Tweak
+  situation_raw: string
+  situation_normalized: string
+  situation_used: Situation
   blocks: Block[]
 }
 
@@ -62,33 +55,76 @@ function parseTimeOverride(time?: string | null): { hours: number; minutes: numb
   return { hours: Number(m[1]), minutes: Number(m[2]) }
 }
 
-function getTweak(req: NextRequest): Tweak {
-  const raw = (req.nextUrl.searchParams.get("tweak") || "").trim()
-  if (raw === "more_new" || raw === "more_familiar" || raw === "no_repeats") return raw
-  return "none"
+function normalizeSituation(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_")
 }
 
-function getSituation(req: NextRequest): Situation {
-  const raw = (req.nextUrl.searchParams.get("situation") || "").trim()
-  const valid: Situation[] = [
-    "working",
-    "studying",
-    "working_out",
-    "walking",
-    "dinner",
-    "hanging_out",
-    "party",
-    "late_night",
-    "chill",
-  ]
-  if (valid.includes(raw as Situation)) return raw as Situation
-  return "auto"
+function getSituation(req: NextRequest): { situation: Situation; raw: string; normalized: string } {
+  const raw = req.nextUrl.searchParams.get("situation") || ""
+  const normalized = normalizeSituation(raw)
+
+  // Alias map for common variations
+  const aliasMap: Record<string, Situation> = {
+    // working_out aliases
+    workout: "working_out",
+    workingout: "working_out",
+    working_out: "working_out",
+    work_out: "working_out",
+    gym: "working_out",
+    exercise: "working_out",
+
+    // working aliases
+    work: "working",
+    working: "working",
+    office: "working",
+
+    // studying aliases
+    study: "studying",
+    studying: "studying",
+    focus: "studying",
+    homework: "studying",
+
+    // party
+    party: "party",
+
+    // dinner aliases
+    dinner: "dinner",
+    hangout: "dinner",
+    hanging_out: "dinner",
+
+    // chill aliases
+    chill: "chill",
+    late_night: "chill",
+
+    // auto
+    auto: "auto",
+    "": "auto",
+  }
+
+  const resolved = aliasMap[normalized] || "auto"
+
+  return {
+    situation: resolved,
+    raw,
+    normalized,
+  }
 }
 
 function getEngine(req: NextRequest): EngineMode {
   const raw = (req.nextUrl.searchParams.get("engine") || "").trim()
   if (raw === "spotify_ai") return "spotify_ai"
   return "my_engine"
+}
+
+function getTweak(req: NextRequest): Tweak {
+  const raw = (req.nextUrl.searchParams.get("tweak") || "").trim()
+  if (raw === "more_new") return "more_new"
+  if (raw === "more_familiar") return "more_familiar"
+  if (raw === "no_repeats") return "no_repeats"
+  return "none"
 }
 
 function formatLocalTimeChicago(date: Date): string {
@@ -168,264 +204,140 @@ type BlockIntent = {
   intent: string
 }
 
-const SITUATION_BLOCKS: Record<Situation, BlockIntent[]> = {
-  auto: [], // Will use time-based blocks
+const SITUATION_PRESETS: Record<
+  Exclude<Situation, "auto">,
+  Array<{ title: string; subtitle: string; intent: string }>
+> = {
+  working_out: [
+    { title: "Warm up", subtitle: "Ease into movement without rushing", intent: "ramp" },
+    { title: "PR mode", subtitle: "Peak intensity for max effort", intent: "energy" },
+    { title: "Keep moving", subtitle: "Steady tempo to maintain momentum", intent: "throwback" },
+    { title: "Second wind", subtitle: "Fresh energy when you start to fade", intent: "discovery" },
+    { title: "Cool down", subtitle: "Bring the intensity back down gradually", intent: "reset" },
+  ],
   working: [
-    { title: "If you want deep focus", subtitle: "Predictable energy that stays out of the way", intent: "focus" },
-    { title: "If you need a mental reset", subtitle: "Shift your state without losing momentum", intent: "reset" },
-    { title: "If you want something familiar", subtitle: "Tracks you know that won't distract", intent: "throwback" },
-    { title: "If you need a light push", subtitle: "Subtle lift without breaking concentration", intent: "ramp" },
+    { title: "Deep focus", subtitle: "Low distraction for sustained concentration", intent: "focus" },
+    { title: "Low distraction", subtitle: "Steady, unobtrusive background energy", intent: "focus" },
+    { title: "Steady tempo", subtitle: "Consistent rhythm to keep you grounded", intent: "ramp" },
+    { title: "No lyrics bias", subtitle: "Instrumental or minimal vocals", intent: "focus" },
+    { title: "Short reset", subtitle: "Brief mental break without losing flow", intent: "reset" },
   ],
   studying: [
-    { title: "If you want deep focus", subtitle: "Steady tracks that keep you locked in", intent: "focus" },
-    { title: "If you need a mental break", subtitle: "Clear your head without losing the groove", intent: "reset" },
-    {
-      title: "If you want something familiar",
-      subtitle: "Known tracks that feel like background",
-      intent: "throwback",
-    },
-    { title: "If you need gentle energy", subtitle: "Lift your attention without overloading", intent: "ramp" },
-  ],
-  working_out: [
-    { title: "If you want high energy", subtitle: "Drive and intensity to push harder", intent: "energy" },
-    { title: "If you want steady momentum", subtitle: "Consistent rhythm to keep you moving", intent: "ramp" },
-    { title: "If you want familiar fuel", subtitle: "Songs you know that keep you going", intent: "throwback" },
-    { title: "If you want to switch it up", subtitle: "Fresh angles that still match your pace", intent: "discovery" },
-  ],
-  walking: [
-    { title: "If you want easy flow", subtitle: "Relaxed pace that matches your steps", intent: "reset" },
-    { title: "If you want gentle momentum", subtitle: "Light push without rushing you", intent: "ramp" },
-    { title: "If you want something familiar", subtitle: "Comfort tracks for the background", intent: "throwback" },
-    { title: "If you want something different", subtitle: "Fresh sounds that fit your walk", intent: "discovery" },
+    { title: "Deep focus", subtitle: "Low distraction for sustained concentration", intent: "focus" },
+    { title: "Low distraction", subtitle: "Steady, unobtrusive background energy", intent: "focus" },
+    { title: "Steady tempo", subtitle: "Consistent rhythm to keep you grounded", intent: "ramp" },
+    { title: "No lyrics bias", subtitle: "Instrumental or minimal vocals", intent: "focus" },
+    { title: "Short reset", subtitle: "Brief mental break without losing flow", intent: "reset" },
   ],
   dinner: [
-    { title: "If you want easy vibes", subtitle: "Background energy that doesn't demand attention", intent: "reset" },
-    { title: "If you want something familiar", subtitle: "Known favorites that set the mood", intent: "throwback" },
-    { title: "If you want warm energy", subtitle: "Inviting sounds without being loud", intent: "ramp" },
-    { title: "If you want subtle variety", subtitle: "New picks that still feel right", intent: "discovery" },
-  ],
-  hanging_out: [
-    {
-      title: "If you want relaxed energy",
-      subtitle: "Loose vibes that don't compete with conversation",
-      intent: "reset",
-    },
-    { title: "If you want something familiar", subtitle: "Shared favorites everyone knows", intent: "throwback" },
-    {
-      title: "If you want to lift the mood",
-      subtitle: "Easy upbeat tracks without being aggressive",
-      intent: "energy",
-    },
-    { title: "If you want something fresh", subtitle: "New sounds that fit the vibe", intent: "discovery" },
+    { title: "Dinner table", subtitle: "Conversational, warm background music", intent: "reset" },
+    { title: "Background glow", subtitle: "Soft energy that fills the space", intent: "throwback" },
+    { title: "Conversation friendly", subtitle: "Won't compete with voices", intent: "reset" },
+    { title: "Soft classics", subtitle: "Familiar, comforting picks", intent: "throwback" },
+    { title: "After dinner", subtitle: "Easy transition to relaxation", intent: "discovery" },
   ],
   party: [
-    { title: "If you want to start strong", subtitle: "Immediate energy to set the tone", intent: "energy" },
-    { title: "If you want peak moments", subtitle: "High-impact tracks that move the room", intent: "ramp" },
-    { title: "If you want crowd-pleasers", subtitle: "Songs people recognize and respond to", intent: "throwback" },
-    { title: "If you want to keep it going", subtitle: "Fresh energy that holds attention", intent: "discovery" },
-  ],
-  late_night: [
-    { title: "If you want sustained energy", subtitle: "Drive without burning out", intent: "energy" },
-    { title: "If you want to stay sharp", subtitle: "Focus energy for late hours", intent: "focus" },
-    { title: "If you want familiar comfort", subtitle: "Known tracks for tired moments", intent: "throwback" },
-    { title: "If you want to wind down", subtitle: "Ease into calmer energy", intent: "reset" },
+    { title: "Kickoff", subtitle: "Set the tone with immediate energy", intent: "energy" },
+    { title: "Hands up", subtitle: "Peak moments that move the room", intent: "energy" },
+    { title: "Peak hour", subtitle: "Maximum intensity for the main event", intent: "ramp" },
+    { title: "Afterparty", subtitle: "Keep the vibe going without peaking again", intent: "throwback" },
+    { title: "Come down", subtitle: "Ease the energy back down", intent: "reset" },
   ],
   chill: [
-    { title: "If you want to slow down", subtitle: "Low-key tracks that help you settle", intent: "reset" },
-    { title: "If you want something familiar", subtitle: "Comfort picks you already love", intent: "throwback" },
-    { title: "If you want gentle focus", subtitle: "Calm attention without pressure", intent: "focus" },
-    { title: "If you want something different", subtitle: "New calm sounds to explore", intent: "discovery" },
+    { title: "Slow lane", subtitle: "Low-key energy to help you settle", intent: "reset" },
+    { title: "Late afternoon haze", subtitle: "Warm, drifting sounds", intent: "throwback" },
+    { title: "Soft edges", subtitle: "Gentle textures, no hard hits", intent: "focus" },
+    { title: "Window seat", subtitle: "Contemplative, introspective mood", intent: "discovery" },
+    { title: "Quiet win", subtitle: "Calm satisfaction, no pressure", intent: "reset" },
   ],
-}
-
-const ALLOWED_INTENTS: Record<Situation, Set<string>> = {
-  auto: new Set(["focus", "energy", "ramp", "reset", "throwback", "discovery"]), // All intents allowed
-  working: new Set(["focus", "reset", "throwback", "ramp"]), // No high energy, no discovery
-  studying: new Set(["focus", "reset", "throwback", "ramp"]), // No high energy, no discovery
-  working_out: new Set(["energy", "ramp", "throwback", "discovery"]), // NEVER focus, NEVER reset
-  walking: new Set(["reset", "ramp", "throwback", "discovery"]), // Calm movement, no intensity
-  dinner: new Set(["reset", "throwback", "ramp", "discovery"]), // Background vibes, no focus/high energy
-  hanging_out: new Set(["reset", "throwback", "energy", "discovery"]), // Social energy, no deep focus
-  party: new Set(["energy", "ramp", "throwback", "discovery"]), // NEVER focus, NEVER reset
-  late_night: new Set(["energy", "focus", "throwback", "reset"]), // Can vary widely late night
-  chill: new Set(["reset", "throwback", "focus", "discovery"]), // Calm activities, no high energy
 }
 
 function blockPlan(
   bucket: TimeBucket,
   situation: Situation,
 ): Array<{ title: string; subtitle: string; intent: string }> {
-  // If situation is specified, return ONLY the pre-configured blocks for that situation
-  if (situation !== "auto" && SITUATION_BLOCKS[situation]) {
-    const blocks = SITUATION_BLOCKS[situation]
-    const allowedIntents = ALLOWED_INTENTS[situation]
-
-    // Validate all blocks use allowed intents (safety check)
-    const validBlocks = blocks.filter((block) => allowedIntents.has(block.intent))
-
-    // Ensure at least 3 blocks
-    if (validBlocks.length < 3) {
-      console.error(`[MODEMENT] Situation "${situation}" has only ${validBlocks.length} valid blocks`)
-    }
-
-    return validBlocks
+  // If situation is set (not "auto"), return ONLY situation-specific blocks
+  if (situation !== "auto") {
+    return SITUATION_PRESETS[situation] || []
   }
 
-  // Auto mode: use time-based blocks
-  const allowedIntents = ALLOWED_INTENTS.auto
-  let timeBlocks: Array<{ title: string; subtitle: string; intent: string }> = []
-
+  // FALLBACK: Auto mode uses time-based blocks
   if (bucket === "morning") {
-    timeBlocks = [
-      {
-        title: "If you want momentum",
-        subtitle: "",
-        intent: "energy",
-      },
-      {
-        title: "If you need a smooth start",
-        subtitle: "",
-        intent: "ramp",
-      },
-      {
-        title: "If you want deep focus",
-        subtitle: "",
-        intent: "focus",
-      },
-      {
-        title: "If you want something different",
-        subtitle: "",
-        intent: "discovery",
-      },
-      {
-        title: "If you want something familiar",
-        subtitle: "",
-        intent: "throwback",
-      },
+    return [
+      { title: "If you want momentum", subtitle: "Start your day with energy", intent: "energy" },
+      { title: "If you need a smooth start", subtitle: "Ease into your morning", intent: "ramp" },
+      { title: "If you want deep focus", subtitle: "Lock in early", intent: "focus" },
+      { title: "If you want something different", subtitle: "Fresh angle for morning", intent: "discovery" },
     ]
   } else if (bucket === "midday") {
-    timeBlocks = [
-      {
-        title: "If you want deep focus",
-        subtitle: "",
-        intent: "focus",
-      },
-      {
-        title: "If you need a mental reset",
-        subtitle: "",
-        intent: "reset",
-      },
-      {
-        title: "If you need a push",
-        subtitle: "",
-        intent: "energy",
-      },
-      {
-        title: "If you want something different",
-        subtitle: "",
-        intent: "discovery",
-      },
-      {
-        title: "If you want something familiar",
-        subtitle: "",
-        intent: "throwback",
-      },
+    return [
+      { title: "If you want deep focus", subtitle: "Steady tracks for midday work", intent: "focus" },
+      { title: "If you need a mental reset", subtitle: "Clear your head", intent: "reset" },
+      { title: "If you need a push", subtitle: "Lift your energy", intent: "energy" },
+      { title: "If you want something different", subtitle: "Fresh picks for afternoon", intent: "discovery" },
     ]
   } else if (bucket === "evening") {
-    timeBlocks = [
-      {
-        title: "If you want to unwind",
-        subtitle: "",
-        intent: "reset",
-      },
-      {
-        title: "If you want light focus",
-        subtitle: "",
-        intent: "focus",
-      },
-      {
-        title: "If you want to move",
-        subtitle: "",
-        intent: "ramp",
-      },
-      {
-        title: "If you want something different",
-        subtitle: "",
-        intent: "discovery",
-      },
-      {
-        title: "If you want something familiar",
-        subtitle: "",
-        intent: "throwback",
-      },
+    return [
+      { title: "If you want to unwind", subtitle: "Shift down from your day", intent: "reset" },
+      { title: "If you want light focus", subtitle: "Evening concentration", intent: "focus" },
+      { title: "If you want to move", subtitle: "Gentle evening energy", intent: "ramp" },
+      { title: "If you want something different", subtitle: "Fresh sounds for evening", intent: "discovery" },
     ]
   } else {
     // late night
-    timeBlocks = [
-      {
-        title: "If you want sustained energy",
-        subtitle: "",
-        intent: "energy",
-      },
-      {
-        title: "If you want to wind down",
-        subtitle: "",
-        intent: "reset",
-      },
-      {
-        title: "If you want something familiar",
-        subtitle: "",
-        intent: "throwback",
-      },
-      {
-        title: "If you want something different",
-        subtitle: "",
-        intent: "discovery",
-      },
+    return [
+      { title: "If you want sustained energy", subtitle: "Stay awake and alert", intent: "energy" },
+      { title: "If you want to stay sharp", subtitle: "Late-night focus", intent: "focus" },
+      { title: "If you want something familiar", subtitle: "Known tracks for tired moments", intent: "throwback" },
+      { title: "If you want to wind down", subtitle: "Ease into calmer energy", intent: "reset" },
     ]
   }
+}
 
-  // Filter time blocks to only allowed intents (safety for auto mode)
-  return timeBlocks.filter((block) => allowedIntents.has(block.intent))
+const ALLOWED_INTENTS: Record<Situation, Set<string>> = {
+  auto: new Set(["focus", "energy", "ramp", "reset", "throwback", "discovery"]), // All intents allowed
+  working_out: new Set(["ramp", "energy", "throwback", "discovery", "reset"]), // All intents allowed for workout
+  working: new Set(["focus", "ramp", "reset"]), // No high energy, no discovery
+  studying: new Set(["focus", "ramp", "reset"]), // No high energy, no discovery
+  dinner: new Set(["reset", "throwback", "discovery"]), // Background vibes, no focus/high energy
+  party: new Set(["energy", "ramp", "throwback", "discovery", "reset"]), // All intents allowed for party
+  chill: new Set(["reset", "throwback", "focus", "discovery"]), // Calm activities, no high energy
 }
 
 function blockWhyNow(params: {
   bucket: TimeBucket
-  tweak: Tweak
-  localTime: string
-  intent: string
   situation: Situation
-}) {
-  const { tweak, intent, situation } = params
+}): string {
+  const { bucket, situation } = params
 
-  // If situation is selected, mention it once
+  // If situation is selected, mention situation + time bucket
   if (situation !== "auto") {
-    const situationContexts: Record<Situation, string> = {
-      auto: "",
-      working: "Since you're working, this MODEMENT favors focus and familiarity.",
-      commuting: "Since you're commuting, this MODEMENT balances energy and familiar hooks.",
-      exercising: "Since you're exercising, this MODEMENT prioritizes high energy and momentum.",
-      relaxing: "Since you're relaxing, this MODEMENT leans toward lighter, easier listening.",
-      socializing: "Since you're socializing, this MODEMENT favors upbeat, crowd-friendly picks.",
-      cooking: "Since you're cooking, this MODEMENT keeps energy steady without demanding attention.",
-      studying: "Since you're studying, this MODEMENT prioritizes low distraction and consistent tempo.",
-      cleaning: "Since you're cleaning, this MODEMENT keeps momentum going with familiar beats.",
-      party: "Since it's party time, this MODEMENT pushes energy and bold choices.",
+    const bucketNames: Record<TimeBucket, string> = {
+      morning: "Morning",
+      midday: "Midday",
+      evening: "Evening",
+      late_night: "Late night",
+    }
+    const situationContexts: Record<Exclude<Situation, "auto">, string> = {
+      working_out: `${bucketNames[bucket]} + workout: energy that scales with your effort.`,
+      working: `${bucketNames[bucket]} + work: keep energy up, distraction low.`,
+      studying: `${bucketNames[bucket]} + study: keep energy up, distraction low.`,
+      dinner: `${bucketNames[bucket]} + dinner: background warmth without competing with conversation.`,
+      party: `${bucketNames[bucket]} + party: peak energy to move the room.`,
+      chill: `${bucketNames[bucket]} + chill: ease into low-key, contemplative mood.`,
     }
     return situationContexts[situation]
   }
 
-  // Otherwise, brief intent-based reasoning
-  const intentDescriptions: Record<string, string> = {
-    focus: "Built to keep you locked in without distraction.",
-    reset: "Built to reset your head without slowing you down.",
-    energy: "Built to give you a push when you need it.",
-    ramp: "Built to lift the tempo smoothly.",
-    throwback: "Built around reliable favorites.",
-    discovery: "Built to shift texture while staying grounded.",
+  // Otherwise, brief time bucket-based reasoning
+  const bucketDescriptions: Record<TimeBucket, string> = {
+    morning: "Morning: easing into the day with controlled energy.",
+    midday: "Midday: maintaining focus and momentum.",
+    evening: "Evening: transitioning to lower-pressure mode.",
+    late_night: "Late night: staying alert or winding down on your terms.",
   }
 
-  return intentDescriptions[intent] || "Built for your current MODEMENT."
+  return bucketDescriptions[bucket]
 }
 
 type MockTrack = {
@@ -439,6 +351,11 @@ type MockTrack = {
     vibes: string[]
     hook: string
     focus_noise: "low" | "medium" | "high"
+    bpm: number
+    energy: number // 0-100
+    valence: number // 0-100 (mood positivity)
+    decadeTag: string
+    sonicTag: string
   }
 }
 
@@ -454,6 +371,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["clean", "melodic", "bright"],
       hook: "clean melodic groove",
       focus_noise: "low",
+      bpm: 118,
+      energy: 55,
+      valence: 60,
+      decadeTag: "2000s",
+      sonicTag: "bright synths",
     },
   },
   {
@@ -467,6 +389,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["catchy", "nostalgic", "smooth"],
       hook: "whistled melody",
       focus_noise: "low",
+      bpm: 128,
+      energy: 62,
+      valence: 58,
+      decadeTag: "2010s",
+      sonicTag: "whistled hook",
     },
   },
   {
@@ -480,6 +407,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["bright", "organic", "warm"],
       hook: "anthemic stomp",
       focus_noise: "medium",
+      bpm: 132,
+      energy: 70,
+      valence: 72,
+      decadeTag: "2010s",
+      sonicTag: "stomping drums",
     },
   },
   {
@@ -493,6 +425,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["anthemic", "sing-along", "uplifting"],
       hook: "call-and-response vocals",
       focus_noise: "high",
+      bpm: 108,
+      energy: 78,
+      valence: 65,
+      decadeTag: "2010s",
+      sonicTag: "brass accents",
     },
   },
   {
@@ -506,6 +443,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["delicate", "gentle", "warm"],
       hook: "fingerpicked guitar",
       focus_noise: "low",
+      bpm: 92,
+      energy: 35,
+      valence: 55,
+      decadeTag: "2010s",
+      sonicTag: "fingerpicked guitar",
     },
   },
   {
@@ -519,6 +461,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["warm", "soulful", "easygoing"],
       hook: "deep baritone vocals",
       focus_noise: "low",
+      bpm: 128,
+      energy: 58,
+      valence: 68,
+      decadeTag: "2010s",
+      sonicTag: "warm guitar",
     },
   },
   {
@@ -532,6 +479,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["joyful", "anthemic", "upbeat"],
       hook: "hand-clap beat",
       focus_noise: "medium",
+      bpm: 92,
+      energy: 82,
+      valence: 88,
+      decadeTag: "2010s",
+      sonicTag: "hand claps",
     },
   },
   {
@@ -545,6 +497,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["driving", "punchy", "tight"],
       hook: "synth bassline",
       focus_noise: "medium",
+      bpm: 140,
+      energy: 85,
+      valence: 60,
+      decadeTag: "2000s",
+      sonicTag: "synth bass",
     },
   },
   {
@@ -558,6 +515,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["anthemic", "driving", "classic"],
       hook: "guitar surge",
       focus_noise: "medium",
+      bpm: 148,
+      energy: 88,
+      valence: 55,
+      decadeTag: "2000s",
+      sonicTag: "guitar surge",
     },
   },
   {
@@ -571,6 +533,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["groovy", "colorful", "playful"],
       hook: "funky bassline",
       focus_noise: "medium",
+      bpm: 108,
+      energy: 72,
+      valence: 75,
+      decadeTag: "2000s",
+      sonicTag: "funky bass",
     },
   },
   {
@@ -584,6 +551,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["nostalgic", "synth-heavy", "anthemic"],
       hook: "synth lead melody",
       focus_noise: "medium",
+      bpm: 124,
+      energy: 80,
+      valence: 68,
+      decadeTag: "2010s",
+      sonicTag: "synth lead",
     },
   },
   {
@@ -597,6 +569,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["bright", "feel-good", "catchy"],
       hook: "horn stabs",
       focus_noise: "medium",
+      bpm: 108,
+      energy: 76,
+      valence: 82,
+      decadeTag: "2010s",
+      sonicTag: "brass hits",
     },
   },
   {
@@ -610,6 +587,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["epic", "shimmering", "driving"],
       hook: "saxophone solo",
       focus_noise: "medium",
+      bpm: 105,
+      energy: 84,
+      valence: 65,
+      decadeTag: "2010s",
+      sonicTag: "sax solo",
     },
   },
   {
@@ -623,6 +605,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["carefree", "optimistic", "loose"],
       hook: "bouncy guitar riff",
       focus_noise: "low",
+      bpm: 98,
+      energy: 62,
+      valence: 72,
+      decadeTag: "2000s",
+      sonicTag: "bouncy guitar",
     },
   },
   {
@@ -636,6 +623,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["chaotic", "fun", "raw"],
       hook: "shout-along chorus",
       focus_noise: "high",
+      bpm: 112,
+      energy: 86,
+      valence: 78,
+      decadeTag: "2010s",
+      sonicTag: "shouted vocals",
     },
   },
   {
@@ -649,6 +641,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["bright", "layered", "urgent"],
       hook: "cascading synths",
       focus_noise: "medium",
+      bpm: 128,
+      energy: 80,
+      valence: 58,
+      decadeTag: "2010s",
+      sonicTag: "layered synths",
     },
   },
   {
@@ -662,6 +659,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["glitchy", "bouncy", "frenetic"],
       hook: "chopped vocal sample",
       focus_noise: "high",
+      bpm: 130,
+      energy: 84,
+      valence: 65,
+      decadeTag: "2000s",
+      sonicTag: "vocal chop",
     },
   },
   {
@@ -675,6 +677,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["warm", "simple", "organic"],
       hook: "stomp-clap rhythm",
       focus_noise: "low",
+      bpm: 82,
+      energy: 68,
+      valence: 75,
+      decadeTag: "2010s",
+      sonicTag: "foot stomps",
     },
   },
   {
@@ -688,6 +695,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["anthemic", "organic", "uplifting"],
       hook: "stomping beat",
       focus_noise: "medium",
+      bpm: 96,
+      energy: 70,
+      valence: 68,
+      decadeTag: "2010s",
+      sonicTag: "stomping rhythm",
     },
   },
   {
@@ -701,6 +713,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["moody", "dreamy", "smooth"],
       hook: "reverb guitar line",
       focus_noise: "low",
+      bpm: 90,
+      energy: 48,
+      valence: 52,
+      decadeTag: "2010s",
+      sonicTag: "reverb guitar",
     },
   },
   {
@@ -714,19 +731,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["powerful", "triumphant", "raw"],
       hook: "explosive harp crescendo",
       focus_noise: "high",
-    },
-  },
-  {
-    id: "6xyWmzLDVSJcYBWidQ38Fi",
-    name: "Pumped Up Kicks",
-    artist: "Foster The People",
-    tags: ["focus", "throwback"],
-    profile: {
-      genre: "indie pop",
-      era: "early 2010s",
-      vibes: ["chill", "catchy", "smooth"],
-      hook: "whistled melody",
-      focus_noise: "low",
+      bpm: 146,
+      energy: 92,
+      valence: 62,
+      decadeTag: "2000s",
+      sonicTag: "harp glissando",
     },
   },
   {
@@ -740,6 +749,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["playful", "bright", "whistled"],
       hook: "iconic whistle riff",
       focus_noise: "low",
+      bpm: 110,
+      energy: 60,
+      valence: 70,
+      decadeTag: "2010s",
+      sonicTag: "whistle melody",
     },
   },
   {
@@ -753,6 +767,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["upbeat", "funky", "danceable"],
       hook: "driving bass groove",
       focus_noise: "high",
+      bpm: 128,
+      energy: 89,
+      valence: 85,
+      decadeTag: "2010s",
+      sonicTag: "funky bass",
     },
   },
   {
@@ -766,6 +785,11 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["raw", "explosive", "anthemic"],
       hook: "shouted vocals",
       focus_noise: "high",
+      bpm: 116,
+      energy: 87,
+      valence: 72,
+      decadeTag: "2010s",
+      sonicTag: "raw vocals",
     },
   },
   {
@@ -779,306 +803,45 @@ const MOCK_TRACKS: MockTrack[] = [
       vibes: ["building", "emotional", "anthemic"],
       hook: "soaring chorus",
       focus_noise: "medium",
+      bpm: 128,
+      energy: 74,
+      valence: 55,
+      decadeTag: "2010s",
+      sonicTag: "building guitar",
     },
   },
 ]
 
-type ReasonTemplate = (track: MockTrack, useHook: boolean) => string
+function generateFeatureBasedReason(track: MockTrack, blockTitle: string): string {
+  const { bpm, energy, valence, sonicTag } = track.profile
 
-const REASON_TEMPLATES: Record<string, ReasonTemplate[]> = {
-  focus: [
-    (t, useHook) =>
-      useHook
-        ? `${t.artist} with ${t.profile.hook}. Easy focus music that still feels alive.`
-        : `${t.artist}, ${t.profile.genre} that keeps distractions low without going ambient.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.artist}'s ${t.profile.hook} keeps you anchored. Good for deep work.`
-        : `${t.artist} stays out of the way but keeps the room from feeling empty.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.profile.hook} from ${t.artist}. Texture without distraction.`
-        : `${t.artist}, clean ${t.profile.genre}. Sits in the background without pulling focus.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.artist} leans on ${t.profile.hook}. Familiar structure, low noise.`
-        : `${t.artist} holds steady energy without demanding attention.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.profile.hook} keeps ${t.artist} grounded. Works when you need flow state.`
-        : `${t.artist}, subtle ${t.profile.genre}. Present but never intrusive.`,
-  ],
-  reset: [
-    (t, useHook) =>
-      useHook
-        ? `${t.artist} and that ${t.profile.hook}. A mental reset that doesn't kill momentum.`
-        : `${t.profile.genre} with a ${t.profile.vibes[0] || "smooth"} feel. Clears your head without pulling you out.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.artist}'s ${t.profile.hook} gives you breathing room. Quick mental refresh.`
-        : `${t.artist}, ${t.profile.vibes[0] || "mellow"} ${t.profile.genre}. Lets your mind wander briefly.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.profile.hook} from ${t.artist}. Shifts the mood without losing pace.`
-        : `${t.artist} creates space to reset. You can step back without fully disengaging.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.artist} uses ${t.profile.hook} to ease tension. Small break, big impact.`
-        : `${t.artist}, gentle ${t.profile.genre}. A moment to recalibrate.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.profile.hook} anchors ${t.artist}'s reset energy. Calms without slowing down.`
-        : `${t.artist} offers a ${t.profile.vibes[0] || "smooth"} pause. Clears the mental queue.`,
-  ],
-  energy: [
-    (t, useHook) =>
-      useHook
-        ? `${t.artist}, ${t.profile.hook}. Lifts the energy without chaos.`
-        : `${t.artist} brings ${t.profile.vibes.find((v) => v === "driving" || v === "anthemic" || v === "bold") || t.profile.vibes[0]} energy. Quick push when the day drags.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.artist} leans into ${t.profile.hook}. Momentum boost, no overload.`
-        : `${t.artist}, high-energy ${t.profile.genre}. Gets you moving without overwhelming.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.profile.hook} drives ${t.artist}'s power. Forward motion when you need it.`
-        : `${t.artist} delivers ${t.profile.vibes[0]} force. Shakes off the midday slump.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.artist}'s ${t.profile.hook} injects urgency. Raises tempo, keeps control.`
-        : `${t.artist}, punchy ${t.profile.genre}. Pulls you up without feeling forced.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.profile.hook} gives ${t.artist} its edge. Sharp energy, no strain.`
-        : `${t.artist} amplifies the room. Bold but focused.`,
-  ],
-  ramp: [
-    (t, useHook) =>
-      useHook
-        ? `${t.artist} with ${t.profile.hook}. Upbeat without jumping straight into peak mode.`
-        : `${t.artist}, ${t.profile.genre}. Raises the tempo smoothly.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.artist} uses ${t.profile.hook} to build momentum. Gradual lift.`
-        : `${t.artist}, steady climb. Gets you there without rushing.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.profile.hook} from ${t.artist}. Warm-up energy that scales naturally.`
-        : `${t.artist}, rising ${t.profile.genre}. Sets the pace without forcing it.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.artist}'s ${t.profile.hook} eases you in. Not yet peak, but heading there.`
-        : `${t.artist} bridges calm and active. Smooth transition mode.`,
-    (t, useHook) =>
-      useHook
-        ? `${t.profile.hook} carries ${t.artist}'s ramp-up. Measured acceleration.`
-        : `${t.artist}, gradual ${t.profile.genre}. Primes the energy curve.`,
-  ],
-  throwback: [
-    (t) => `${t.artist}, ${t.profile.era}. Familiar energy that keeps the mood up.`,
-    (t) => `${t.artist} from ${t.profile.era}. You know this one—still lands.`,
-    (t) => `${t.profile.era} ${t.artist}. Proven track, reliable energy.`,
-    (t) => `${t.artist}, classic ${t.profile.era}. Comfort without nostalgia drag.`,
-    (t) => `${t.artist} from back then. ${t.profile.era} familiarity that still works now.`,
-  ],
-  discovery: [
-    (t) =>
-      `${t.profile.genre} with a ${t.profile.vibes[1] || t.profile.vibes[0]} edge. New pick, but fits what you already play.`,
-    (t) => `${t.artist}, ${t.profile.vibes[0]} ${t.profile.genre}. Fresh find that aligns with your range.`,
-    (t) => `${t.artist} offers ${t.profile.vibes[1] || t.profile.vibes[0]} ${t.profile.genre}. New to you, not a risk.`,
-    (t) => `${t.artist}, ${t.profile.genre} adjacent to what you know. Safe exploration.`,
-    (t) => `${t.artist}, ${t.profile.vibes[0]} sound. Expands the mix without disrupting it.`,
-  ],
-}
+  // Build reason based on block type and track features
+  const energyLevel = energy > 75 ? "high-energy" : energy > 55 ? "mid-tempo" : "low-key"
+  const mood = valence > 70 ? "upbeat" : valence > 50 ? "mid valence" : "mellower mood"
 
-function personalTrackReason(params: {
-  track: MockTrack
-  bucket: TimeBucket
-  intent: string
-  tweak: Tweak
-  localTime: string
-  usedHooks: Set<string>
-  usedTemplates: Set<number> // Track which templates are used in this block
-}): string {
-  const { track, intent, usedHooks, usedTemplates } = params
-  const { profile } = track
-  const { hook } = profile
-
-  const useHook = !usedHooks.has(hook)
-  if (useHook) usedHooks.add(hook)
-
-  const templates = REASON_TEMPLATES[intent] || REASON_TEMPLATES.discovery
-
-  let templateIndex = -1
-  for (let i = 0; i < templates.length; i++) {
-    if (!usedTemplates.has(i)) {
-      templateIndex = i
-      break
-    }
+  // Different reason templates based on block context
+  if (blockTitle.includes("PR mode") || blockTitle.includes("Hands up") || blockTitle.includes("Peak")) {
+    return `${bpm} bpm with ${sonicTag}. ${energyLevel.charAt(0).toUpperCase() + energyLevel.slice(1)} without going full EDM.`
   }
 
-  if (templateIndex === -1) {
-    templateIndex = usedTemplates.size % templates.length
+  if (blockTitle.includes("focus") || blockTitle.includes("Deep focus") || blockTitle.includes("Low distraction")) {
+    const lyricNote = track.profile.focus_noise === "low" ? "Low lyric density" : "Steady presence"
+    return `${lyricNote}, ${bpm} bpm. Study-safe.`
   }
 
-  usedTemplates.add(templateIndex)
-
-  const template = templates[templateIndex]
-  return template(track, useHook)
-}
-
-function spotifyAiSubtitle(bucket: TimeBucket) {
-  if (bucket === "morning") return "Upbeat mix for your day"
-  if (bucket === "midday") return "A blend for your routine"
-  if (bucket === "evening") return "Chill picks you might like"
-  return "Late night vibes"
-}
-
-function spotifyAiWhyNow(bucket: TimeBucket) {
-  if (bucket === "morning") return "Picked based on your listening habits."
-  if (bucket === "midday") return "A mix based on your recent activity."
-  if (bucket === "evening") return "Selected for your typical evening listening."
-  return "Recommended from your taste profile."
-}
-
-function scoreTrack(t: MockTrack, intent: string, tweak: Tweak): number {
-  let score = 0
-
-  if (t.tags.includes(intent)) score += 6
-  if (intent === "discovery") score += 1 // looser match
-
-  // Tweak bias
-  if (tweak === "more_new") {
-    score += t.tags.includes("throwback") ? -2 : 2
-  } else if (tweak === "more_familiar") {
-    score += t.tags.includes("throwback") ? 3 : 0
+  if (blockTitle.includes("Dinner") || blockTitle.includes("Background") || blockTitle.includes("Conversation")) {
+    return `${sonicTag.charAt(0).toUpperCase() + sonicTag.slice(1)} + ${mood}. Dinner table friendly.`
   }
 
-  return score
-}
-
-const SITUATION_BIAS: Record<Situation, Partial<Record<string, number>>> = {
-  auto: {},
-  working: { focus: 3, familiar: 1, energy: -1 },
-  studying: { focus: 3, familiar: 1, reset: -2 },
-  working_out: { energy: 3, ramp: 2, focus: -3 },
-  walking: { reset: 2, ramp: 1, focus: -1 },
-  dinner: { reset: 2, familiar: 1, energy: -1 },
-  hanging_out: { reset: 2, energy: 1, focus: -2 },
-  party: { energy: 3, ramp: 2, focus: -3 },
-  late_night: { energy: 2, ramp: 1, throwback: 1 },
-  chill: { reset: 3, focus: 1, energy: -2 },
-}
-
-function scoreIntent(intent: string, situation: Situation): number {
-  if (situation === "auto") return 0
-  const bias = SITUATION_BIAS[situation]
-  return bias[intent] || 0
-}
-
-function pickTracksForIntent(params: {
-  intent: string
-  tweak: Tweak
-  engine: EngineMode
-  seed: number
-  seen: Set<string>
-  situation: Situation
-  blockIndex: number
-  globalSeen: Set<string>
-}): MockTrack[] {
-  const { intent, tweak, seed, seen, situation, blockIndex, globalSeen } = params
-
-  const ordered = seededShuffle(MOCK_TRACKS, seed)
-    .map((t) => {
-      let score = scoreTrack(t, intent, tweak)
-
-      if (globalSeen.has(t.id)) {
-        if (blockIndex < 3) {
-          score -= 1000
-        } else {
-          score -= 5
-        }
-      }
-
-      if (situation !== "auto") {
-        const situationBias = SITUATION_BIAS[situation]
-        for (const tag of t.tags) {
-          const intentBoost = situationBias[tag] || 0
-          if (intentBoost > 0) {
-            score += intentBoost * 0.5
-          }
-        }
-
-        if ((situation === "working" || situation === "studying") && t.profile.focus_noise === "low") {
-          score += 2
-        }
-        if ((situation === "working" || situation === "studying") && t.profile.focus_noise === "high") {
-          score -= 2
-        }
-
-        if ((situation === "working_out" || situation === "party") && t.profile.focus_noise === "high") {
-          score += 1
-        }
-      }
-
-      return { t, score }
-    })
-    .sort((a, b) => b.score - a.score)
-
-  const picked: MockTrack[] = []
-
-  for (const item of ordered) {
-    if (picked.length >= 5) break
-    if (tweak === "no_repeats" && seen.has(item.t.id)) continue
-    picked.push(item.t)
-    seen.add(item.t.id)
-    globalSeen.add(item.t.id)
+  if (blockTitle.includes("Warm up") || blockTitle.includes("Cool down") || blockTitle.includes("reset")) {
+    return `${bpm} bpm, ${energyLevel}. ${mood.charAt(0).toUpperCase() + mood.slice(1)} to shift gears.`
   }
 
-  if (picked.length < 5) {
-    for (const t of ordered.map((x) => x.t)) {
-      if (picked.length >= 5) break
-      if (picked.some((p) => p.id === t.id)) continue
-      picked.push(t)
-      globalSeen.add(t.id)
-    }
-  }
-
-  return picked
+  // Default reason
+  return `${bpm} bpm with ${sonicTag}. ${energyLevel.charAt(0).toUpperCase() + energyLevel.slice(1)}, ${mood}.`
 }
 
-function generateRecommendationBlock(
-  intent: string,
-  bucket: TimeBucket,
-  tweak: Tweak,
-  localTime: string,
-  situation: Situation,
-  existingTracks: Set<string>,
-): RecommendationBlock {
-  const seen = new Set<string>(existingTracks)
-  const topCandidates = MOCK_TRACKS.filter((t) => !seen.has(t.id)).sort(
-    (a, b) => scoreTrack(b, intent, tweak) - scoreTrack(a, intent, tweak),
-  )
-
-  const usedHooks = new Set<string>()
-  const usedTemplates = new Set<number>()
-
-  const selectedTracks = topCandidates.slice(0, 5)
-  const tracks = selectedTracks.map((t) => ({
-    track_name: t.name,
-    artist: t.artist,
-    track_url: `https://open.spotify.com/track/${t.id}`,
-    reason: "",
-  }))
-
-  return {
-    id: `block-${selectedTracks[0].id}`,
-    title: `Recommended ${intent.charAt(0).toUpperCase() + intent.slice(1)}`,
-    subtitle: `Top picks for ${intent}`,
-    why_now: `Based on your current ${intent} needs`,
-    tracks,
-  }
-}
+// Note: SITUATION_BLOCKS is now effectively replaced by SITUATION_PRESETS and blockPlan logic
 
 function getReasonSignal(intent: string): string {
   const signalMap: Record<string, string> = {
@@ -1173,9 +936,8 @@ function buildBlocks(params: {
 
   const plan = blockPlan(bucket, situation)
 
-  const seen = new Set<string>()
-  const globalSeen = new Set<string>()
-  const usedSubtitles = new Set<string>()
+  const seen = new Set<string>() // Tracks within a single block
+  const globalSeen = new Set<string>() // Tracks across ALL blocks in response
 
   return plan.map((p, idx) => {
     const intent = p.intent
@@ -1192,22 +954,8 @@ function buildBlocks(params: {
       globalSeen,
     })
 
-    const usedHooks = new Set<string>()
-    const usedTemplates = new Set<number>()
-
     const tracks: Track[] = picked.map((t) => {
-      const reason =
-        engine === "spotify_ai"
-          ? ""
-          : personalTrackReason({
-              track: t,
-              bucket,
-              intent,
-              tweak,
-              localTime,
-              usedHooks,
-              usedTemplates,
-            })
+      const reason = engine === "spotify_ai" ? "" : generateFeatureBasedReason(t, p.title)
 
       const reason_signal = engine === "spotify_ai" ? undefined : getReasonSignal(intent)
 
@@ -1220,8 +968,6 @@ function buildBlocks(params: {
         track_url: makeTrackUrl(t.id),
       }
     })
-
-    const subtitle = pickSubtitleVariant(intent, usedSubtitles, blockSeed)
 
     if (engine === "spotify_ai") {
       return {
@@ -1236,7 +982,7 @@ function buildBlocks(params: {
                 : idx === 3
                   ? "Recommended"
                   : "More Like This",
-        subtitle: subtitle || spotifyAiSubtitle(bucket),
+        subtitle: p.subtitle || spotifyAiSubtitle(bucket),
         why_now: spotifyAiWhyNow(bucket),
         tracks,
       }
@@ -1245,11 +991,149 @@ function buildBlocks(params: {
     return {
       id: `block-${idx}`,
       title: p.title,
-      subtitle: subtitle || SUBTITLE_FALLBACK[intent] || "A MODEMENT option tuned for right now.",
-      why_now: blockWhyNow({ bucket, tweak, localTime, intent, situation }),
+      subtitle: p.subtitle,
+      why_now: blockWhyNow({ bucket, situation }),
       tracks,
     }
   })
+}
+
+function scoreTrack(t: MockTrack, intent: string, tweak: Tweak): number {
+  let score = 0
+
+  if (t.tags.includes(intent)) score += 6
+  if (intent === "discovery") score += 1 // looser match
+
+  // Tweak bias
+  if (tweak === "more_new") {
+    score += t.tags.includes("throwback") ? -2 : 2
+  } else if (tweak === "more_familiar") {
+    score += t.tags.includes("throwback") ? 3 : 0
+  }
+
+  return score
+}
+
+const SITUATION_BIAS: Record<Situation, Partial<Record<string, number>>> = {
+  auto: {},
+  working_out: { energy: 3, ramp: 2, reset: 1, throwback: 1 },
+  working: { focus: 3, ramp: 1, reset: -2 },
+  studying: { focus: 3, ramp: 1, reset: -2 },
+  dinner: { reset: 3, throwback: 1, focus: -1 },
+  party: { energy: 3, ramp: 2, throwback: 1, reset: -2 },
+  chill: { reset: 3, focus: 1, throwback: 1, energy: -2 },
+}
+
+function scoreIntent(intent: string, situation: Situation): number {
+  if (situation === "auto") return 0
+  const bias = SITUATION_BIAS[situation]
+  return bias[intent] || 0
+}
+
+function pickTracksForIntent(params: {
+  intent: string
+  tweak: Tweak
+  engine: EngineMode
+  seed: number
+  seen: Set<string>
+  situation: Situation
+  blockIndex: number
+  globalSeen: Set<string>
+}): MockTrack[] {
+  const { intent, tweak, seed, seen, situation, blockIndex, globalSeen } = params
+
+  const ordered = seededShuffle(MOCK_TRACKS, seed)
+    .map((t) => {
+      let score = scoreTrack(t, intent, tweak)
+
+      if (globalSeen.has(t.id)) {
+        if (blockIndex < 3) {
+          score -= 1000
+        } else {
+          score -= 5
+        }
+      }
+
+      if (situation !== "auto") {
+        const situationBias = SITUATION_BIAS[situation]
+        for (const tag of t.tags) {
+          const intentBoost = situationBias[tag] || 0
+          if (intentBoost > 0) {
+            score += intentBoost * 0.5
+          }
+        }
+
+        // Fine-tune scores based on track features for specific situations
+        if (situation === "studying") {
+          if (t.profile.focus_noise === "low") score += 2
+          if (t.profile.focus_noise === "high") score -= 2
+          if (t.profile.valence < 40) score += 1 // Prefer less sad music for studying
+          if (t.profile.bpm < 90) score += 1 // Prefer slower tempos for deep focus
+        }
+
+        if (situation === "working_out") {
+          if (t.profile.energy < 70) score -= 1
+          if (t.profile.bpm < 110) score -= 1
+          if (t.profile.valence < 50) score -= 1
+        }
+
+        if (situation === "party") {
+          if (t.profile.energy < 80) score -= 1
+          if (t.profile.bpm < 120) score -= 1
+          if (t.profile.valence < 60) score -= 1
+        }
+
+        if (situation === "dinner") {
+          if (t.profile.energy > 60) score -= 1
+          if (t.profile.bpm > 110) score -= 1
+          if (t.profile.valence < 50) score -= 1
+        }
+
+        if (situation === "chill") {
+          if (t.profile.energy > 60) score -= 1
+          if (t.profile.bpm > 100) score -= 1
+        }
+      }
+
+      return { t, score }
+    })
+    .sort((a, b) => b.score - a.score)
+
+  const picked: MockTrack[] = []
+
+  for (const item of ordered) {
+    if (picked.length >= 5) break
+    if (tweak === "no_repeats" && seen.has(item.t.id)) continue
+    picked.push(item.t)
+    seen.add(item.t.id)
+    globalSeen.add(item.t.id)
+  }
+
+  // Fallback to ensure we always return 5 tracks if possible
+  if (picked.length < 5) {
+    for (const t of ordered.map((x) => x.t)) {
+      if (picked.length >= 5) break
+      if (picked.some((p) => p.id === t.id)) continue
+      picked.push(t)
+      globalSeen.add(t.id)
+    }
+  }
+
+  return picked
+}
+
+function spotifyAiSubtitle(bucket: TimeBucket) {
+  if (bucket === "morning") return "Upbeat mix for your day"
+  if (bucket === "midday") return "A blend for your routine"
+  if (bucket === "evening") return "Chill picks you might like"
+  return "Late night vibes"
+}
+
+function spotifyAiWhyNow(bucket: TimeBucket) {
+  if (bucket === "morning") return "Picked based on your listening habits."
+  if (bucket === "midday") return "A mix based on your recent activity."
+  if (bucket === "evening") return "Selected for your typical evening listening."
+  return "Recommended from your taste profile."
 }
 
 export async function GET(req: NextRequest) {
@@ -1257,7 +1141,8 @@ export async function GET(req: NextRequest) {
 
   const tweak = getTweak(req)
   const engine = getEngine(req)
-  const situation = getSituation(req)
+  const situationResult = getSituation(req)
+  const situation = situationResult.situation
 
   const override = parseTimeOverride(req.nextUrl.searchParams.get("time"))
 
@@ -1290,6 +1175,9 @@ export async function GET(req: NextRequest) {
     time_bucket: timeBucket,
     engine,
     tweak,
+    situation_raw: situationResult.raw,
+    situation_normalized: situationResult.normalized,
+    situation_used: situation,
     blocks,
   }
 
