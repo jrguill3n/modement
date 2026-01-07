@@ -13,6 +13,7 @@ type Track = {
   reason: string
   reason_signal?: string
   track_url: string
+  artwork_url: string | null // Added artwork_url field
 }
 
 type RecommendationBlock = {
@@ -487,7 +488,7 @@ const MOCK_TRACKS: MockTrack[] = [
     },
   },
   {
-    id: "2EqlS6tkEnglzr7tkKAAYD",
+    id: "6PwjJ58I4t7Mae9xfZ9l9v",
     name: "Somebody Told Me",
     artist: "The Killers",
     tags: ["energy", "ramp"],
@@ -541,7 +542,7 @@ const MOCK_TRACKS: MockTrack[] = [
     },
   },
   {
-    id: "2Kerz9H9IejzeIpjhDJoYG",
+    id: "1jJci4qxiYcOHhQR247rEU",
     name: "Kids",
     artist: "MGMT",
     tags: ["energy", "throwback"],
@@ -588,32 +589,14 @@ const MOCK_TRACKS: MockTrack[] = [
       hook: "saxophone solo",
       focus_noise: "medium",
       bpm: 105,
-      energy: 84,
-      valence: 65,
+      energy: 82,
+      valence: 68,
       decadeTag: "2010s",
-      sonicTag: "sax solo",
+      sonicTag: "synth epic",
     },
   },
   {
-    id: "2lwwrWVKdf3LR9lbbhnr6R",
-    name: "Float On",
-    artist: "Modest Mouse",
-    tags: ["reset", "throwback"],
-    profile: {
-      genre: "indie rock",
-      era: "mid 2000s",
-      vibes: ["carefree", "optimistic", "loose"],
-      hook: "bouncy guitar riff",
-      focus_noise: "low",
-      bpm: 98,
-      energy: 62,
-      valence: 72,
-      decadeTag: "2000s",
-      sonicTag: "bouncy guitar",
-    },
-  },
-  {
-    id: "0EkVCyQUSFv8uP4FKk6VL8",
+    id: "0GO8y8jQk1PkHzS31d699N",
     name: "Tongue Tied",
     artist: "Grouplove",
     tags: ["energy", "ramp"],
@@ -757,7 +740,7 @@ const MOCK_TRACKS: MockTrack[] = [
     },
   },
   {
-    id: "1301WleyT98MSxVHPZCA6M",
+    id: "4kbj5MwxO1bq9wjT5g9HaA",
     name: "Shut Up and Dance",
     artist: "WALK THE MOON",
     tags: ["energy", "ramp"],
@@ -924,22 +907,115 @@ function pickSubtitleVariant(intent: string, usedSubtitles: Set<string>, seed: n
   return variants[idx]
 }
 
-function buildBlocks(params: {
+type OEmbedCache = {
+  name: string
+  artist: string
+  artwork_url: string | null
+  embed_title: string
+  cached_at: number
+}
+
+const oembedCache = new Map<string, OEmbedCache>()
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
+
+async function canonicalizeTrack(
+  trackUrl: string,
+  fallbackName: string,
+  fallbackArtist: string,
+): Promise<{
+  name: string
+  artist: string
+  artwork_url: string | null
+  embed_title: string
+}> {
+  // Check cache first
+  const cached = oembedCache.get(trackUrl)
+  if (cached && Date.now() - cached.cached_at < CACHE_TTL_MS) {
+    return {
+      name: cached.name,
+      artist: cached.artist,
+      artwork_url: cached.artwork_url,
+      embed_title: cached.embed_title,
+    }
+  }
+
+  try {
+    const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(trackUrl)}`
+    const response = await fetch(oembedUrl, {
+      signal: AbortSignal.timeout(3000), // 3 second timeout
+    })
+
+    if (!response.ok) {
+      throw new Error(`oEmbed fetch failed: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    // Parse the title to extract artist and track name
+    // Format is typically: "Artist • Track Name" or "Track Name by Artist"
+    let name = fallbackName
+    let artist = fallbackArtist
+    const title = data.title || ""
+
+    if (title.includes(" • ")) {
+      const parts = title.split(" • ")
+      artist = parts[0].trim()
+      name = parts[1]?.trim() || fallbackName
+    } else if (title.toLowerCase().includes(" by ")) {
+      const parts = title.split(/ by /i)
+      name = parts[0].trim()
+      artist = parts[1]?.trim() || fallbackArtist
+    }
+
+    const result = {
+      name,
+      artist,
+      artwork_url: data.thumbnail_url || null,
+      embed_title: title,
+    }
+
+    // Cache the result
+    oembedCache.set(trackUrl, {
+      ...result,
+      cached_at: Date.now(),
+    })
+
+    return result
+  } catch (error) {
+    // On failure, cache the fallback to prevent retries
+    const result = {
+      name: fallbackName,
+      artist: fallbackArtist,
+      artwork_url: null,
+      embed_title: `${fallbackArtist} - ${fallbackName}`,
+    }
+
+    oembedCache.set(trackUrl, {
+      ...result,
+      cached_at: Date.now(),
+    })
+
+    return result
+  }
+}
+
+async function buildBlocksWithArtwork(params: {
   bucket: TimeBucket
   tweak: Tweak
   engine: EngineMode
   localTime: string
   seed: number
   situation: Situation
-}): Block[] {
+}): Promise<Block[]> {
   const { bucket, tweak, engine, localTime, seed, situation } = params
 
   const plan = blockPlan(bucket, situation)
 
-  const seen = new Set<string>() // Tracks within a single block
-  const globalSeen = new Set<string>() // Tracks across ALL blocks in response
+  const seen = new Set<string>()
+  const globalSeen = new Set<string>()
 
-  return plan.map((p, idx) => {
+  // Build blocks synchronously first
+  const blocks = plan.map((p, idx) => {
     const intent = p.intent
     const blockSeed = seed + idx * 101
 
@@ -954,44 +1030,80 @@ function buildBlocks(params: {
       globalSeen,
     })
 
-    const tracks: Track[] = picked.map((t) => {
-      const reason = engine === "spotify_ai" ? "" : generateFeatureBasedReason(t, p.title)
+    return {
+      blockPlan: p,
+      intent,
+      picked,
+      idx,
+    }
+  })
 
-      const reason_signal = engine === "spotify_ai" ? undefined : getReasonSignal(intent)
+  const allTrackUrls = new Set<string>()
+  blocks.forEach((b) => {
+    b.picked.forEach((t) => {
+      allTrackUrls.add(makeTrackUrl(t.id))
+    })
+  })
+
+  // Fetch all unique track URLs in batches of 5 to avoid hammering oEmbed
+  const trackUrlArray = Array.from(allTrackUrls)
+  const batchSize = 5
+  for (let i = 0; i < trackUrlArray.length; i += batchSize) {
+    const batch = trackUrlArray.slice(i, i + batchSize)
+    await Promise.all(
+      batch.map((url) => {
+        const track = MOCK_TRACKS.find((t) => makeTrackUrl(t.id) === url)
+        if (track) {
+          return canonicalizeTrack(url, track.name, track.artist)
+        }
+        return Promise.resolve()
+      }),
+    )
+  }
+
+  // Now build final blocks with canonicalized data
+  return blocks.map((b) => {
+    const tracks: Track[] = b.picked.map((t) => {
+      const trackUrl = makeTrackUrl(t.id)
+      const canonical = oembedCache.get(trackUrl)
+
+      const reason = engine === "spotify_ai" ? "" : generateFeatureBasedReason(t, b.blockPlan.title)
+      const reason_signal = engine === "spotify_ai" ? undefined : getReasonSignal(b.intent)
 
       return {
         id: t.id,
-        name: t.name,
-        artist: t.artist,
+        name: canonical?.name || t.name,
+        artist: canonical?.artist || t.artist,
         reason,
         reason_signal,
-        track_url: makeTrackUrl(t.id),
+        track_url: trackUrl,
+        artwork_url: canonical?.artwork_url || null,
       }
     })
 
     if (engine === "spotify_ai") {
       return {
-        id: `block-${idx}`,
+        id: `block-${b.idx}`,
         title:
-          idx === 0
+          b.idx === 0
             ? "Made for You"
-            : idx === 1
+            : b.idx === 1
               ? "Daily Mix"
-              : idx === 2
+              : b.idx === 2
                 ? "Vibes"
-                : idx === 3
+                : b.idx === 3
                   ? "Recommended"
                   : "More Like This",
-        subtitle: p.subtitle || spotifyAiSubtitle(bucket),
+        subtitle: b.blockPlan.subtitle || spotifyAiSubtitle(bucket),
         why_now: spotifyAiWhyNow(bucket),
         tracks,
       }
     }
 
     return {
-      id: `block-${idx}`,
-      title: p.title,
-      subtitle: p.subtitle,
+      id: `block-${b.idx}`,
+      title: b.blockPlan.title,
+      subtitle: b.blockPlan.subtitle,
       why_now: blockWhyNow({ bucket, situation }),
       tracks,
     }
@@ -1160,7 +1272,7 @@ export async function GET(req: NextRequest) {
   const seedKey = `${timeBucket}|${tweak}|${engine}|${situation}|${override ? `${override.hours}:${override.minutes}` : "now"}`
   const seed = stableHash(seedKey)
 
-  const blocks = buildBlocks({
+  const blocks = await buildBlocksWithArtwork({
     bucket: timeBucket,
     tweak,
     engine,

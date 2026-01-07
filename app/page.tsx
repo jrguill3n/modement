@@ -11,8 +11,8 @@ interface Track {
   artist: string
   reason: string
   track_url: string
-  album_artwork_url: string // Added album artwork URL
-  reason_signal?: string // Added reason_signal
+  artwork_url: string | null // Added artwork_url from API
+  reason_signal?: string
 }
 
 interface Block {
@@ -38,6 +38,7 @@ interface Mix {
       track_url: string
       reason: string
       reason_signal?: string
+      artwork_url: string | null // Added artwork_url from API
     }[]
   }[]
 }
@@ -67,8 +68,6 @@ const spotifyGenericVibes = ["Upbeat Mix", "Chill Indie", "Popular Picks", "Feel
 
 const spotifyGenericWhy = "Picked based on your listening habits."
 
-const artworkCache = new Map<string, string>()
-
 export default function Home() {
   const [view, setView] = useState<"decision" | "recommendations">("decision")
   const [situation, setSituation] = useState<string>("auto")
@@ -78,10 +77,9 @@ export default function Home() {
   const [testTime, setTestTime] = useState<string>("")
   const [simulatedTime, setSimulatedTime] = useState<string>("")
   const [tweak, setTweak] = useState<string>("balanced")
-  const [loadedArtwork, setLoadedArtwork] = useState<Map<string, string>>(new Map())
   const [expandedReasons, setExpandedReasons] = useState<Set<string>>(new Set())
   const [accordionKey, setAccordionKey] = useState<number>(0)
-  const [expandedAccordions, setExpandedAccordions] = useState<Set<string>>(new Set())
+  const [showDataQuality, setShowDataQuality] = useState(false) // Added data quality debug toggle
 
   const fetchMix = async () => {
     setLoading(true)
@@ -106,40 +104,10 @@ export default function Home() {
     }
   }
 
-  const fetchAlbumArtwork = async (trackUrl: string): Promise<string | null> => {
-    // Check cache first
-    if (artworkCache.has(trackUrl)) {
-      return artworkCache.get(trackUrl) || null
-    }
-
-    try {
-      console.log("[v0] Fetching artwork for:", trackUrl)
-      const response = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(trackUrl)}`)
-      if (!response.ok) {
-        console.error("[v0] Failed to fetch album artwork - Status:", response.status, "URL:", trackUrl)
-        return null
-      }
-
-      const data = await response.json()
-      const thumbnailUrl = data.thumbnail_url || null
-
-      // Cache the result
-      if (thumbnailUrl) {
-        artworkCache.set(trackUrl, thumbnailUrl)
-      }
-
-      return thumbnailUrl
-    } catch (error) {
-      console.error("[v0] Failed to fetch album artwork:", error, "URL:", trackUrl)
-      return null
-    }
-  }
-
   const handleSituationChange = (sit: string) => {
     setSituation(sit)
     setExpandedReasons(new Set())
     setAccordionKey((prev) => prev + 1) // Force accordion reset
-    setExpandedAccordions(new Set())
   }
 
   const handleTweakChange = (newTweak: string) => {
@@ -167,26 +135,6 @@ export default function Home() {
       }
       return next
     })
-  }
-
-  const handleAccordionChange = async (value: string) => {
-    if (value && !expandedAccordions.has(value)) {
-      setExpandedAccordions((prev) => new Set(prev).add(value))
-
-      const blockIndex = Number.parseInt(value.split("-")[1])
-      const block = mix?.blocks[blockIndex]
-
-      if (block) {
-        for (const track of block.tracks) {
-          if (!loadedArtwork.has(track.id)) {
-            const artwork = await fetchAlbumArtwork(track.track_url)
-            if (artwork) {
-              setLoadedArtwork((prev) => new Map(prev).set(track.id, artwork))
-            }
-          }
-        }
-      }
-    }
   }
 
   useEffect(() => {
@@ -223,6 +171,16 @@ export default function Home() {
         }}
       >
         <div className="w-full max-w-2xl space-y-12">
+          <div className="text-center pb-4">
+            <h1 className="text-2xl md:text-3xl tracking-tight leading-none relative inline-block">
+              <span className="font-bold text-white relative">
+                MODE
+                <span className="absolute -bottom-1 left-0 right-0 h-[2px] bg-[#1DB954]/30 rounded-full"></span>
+              </span>
+              <span className="font-normal text-white">MENT</span>
+            </h1>
+          </div>
+
           <div className="space-y-3 text-center">
             <h1 className="text-4xl md:text-5xl font-bold text-white leading-tight">Hey, there!</h1>
             <p className="text-2xl md:text-3xl text-white/70 leading-snug">
@@ -356,8 +314,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col" style={{ minHeight: "100svh" }}>
       {process.env.NODE_ENV === "development" && mix && (
-        <div className="fixed top-20 left-4 bg-black/80 text-white/70 text-xs px-3 py-2 rounded border border-white/10 z-50">
-          situation: {situation} | api: {mix.situation_used || "unknown"}
+        <div className="fixed top-20 left-4 bg-black/80 text-white/70 text-xs px-3 py-2 rounded border border-white/10 z-50 space-y-1">
+          <div>
+            situation: {situation} | api: {mix.situation_used || "unknown"}
+          </div>
+          <button onClick={() => setShowDataQuality(!showDataQuality)} className="text-[#1DB954] hover:underline">
+            {showDataQuality ? "Hide" : "Show"} data quality
+          </button>
         </div>
       )}
 
@@ -532,13 +495,7 @@ export default function Home() {
           paddingBottom: "max(2rem, env(safe-area-inset-bottom))",
         }}
       >
-        <Accordion
-          key={accordionKey}
-          type="single"
-          collapsible
-          className="space-y-4"
-          onValueChange={handleAccordionChange}
-        >
+        <Accordion key={accordionKey} type="single" collapsible className="space-y-4">
           {mix.blocks.map((block, index) => (
             <AccordionItem
               key={index}
@@ -556,7 +513,7 @@ export default function Home() {
               <AccordionContent className="px-0 py-0">
                 <div className="space-y-0 pb-4">
                   {block.tracks.map((track) => {
-                    const artworkUrl = loadedArtwork.get(track.id)
+                    const artworkUrl = track.artwork_url
                     const isReasonExpanded = expandedReasons.has(track.id)
 
                     return (
@@ -576,8 +533,10 @@ export default function Home() {
                                 loading="lazy"
                                 onError={(e) => {
                                   e.currentTarget.style.display = "none"
-                                  e.currentTarget.parentElement!.innerHTML =
-                                    `<span class="text-lg font-bold text-white/70">${track.name.charAt(0).toUpperCase()}</span>`
+                                  const parent = e.currentTarget.parentElement
+                                  if (parent) {
+                                    parent.innerHTML = `<span class="text-lg font-bold text-white/70">${track.name.charAt(0).toUpperCase()}</span>`
+                                  }
                                 }}
                               />
                             ) : (
@@ -589,6 +548,11 @@ export default function Home() {
                           <div className="flex-1 min-w-0 space-y-1">
                             <p className="text-base md:text-lg font-semibold text-white leading-snug">{track.name}</p>
                             <p className="text-sm md:text-base text-white/60 leading-relaxed">{track.artist}</p>
+                            {showDataQuality && process.env.NODE_ENV === "development" && (
+                              <p className="text-[10px] text-[#1DB954]/70">
+                                {artworkUrl ? "source: oEmbed ok" : "source: fallback"}
+                              </p>
+                            )}
                           </div>
                           <div className="flex-shrink-0 flex items-center gap-2">
                             {track.reason && (
